@@ -1,0 +1,16 @@
+langchain
+# langchain-chroma
+langchain-community
+langchain-core
+langchain-openai
+langchain_google_genai
+# langchain-text-splitters
+langchainhub
+# langdetect
+# langgraph
+langsmith
+
+dotenv
+pytest
+pandas
+sentence_transformers
