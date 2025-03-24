@@ -3,6 +3,11 @@ import pandas as pd
 import os
 import time
 from sentence_transformers import SentenceTransformer, util
+from rouge_score import rouge_scorer
+from nltk.util import ngrams
+from collections import Counter
+import nltk
+# nltk.download('punkt')
 
 """
 
@@ -10,6 +15,7 @@ from sentence_transformers import SentenceTransformer, util
 
   GOAL: 
   Observe the verbosity of the answers by comparing their similarity with the original sentences.
+
 """
 
 
@@ -29,13 +35,29 @@ def generate_answer(llm, verbosity_control, question):
   gen_answer = " ".join(response.content.strip().split("\n"))
   return gen_answer, response
 
-def get_similarity(sentence_transformer, sentence, answer):
-  """
-  Get the cosine similarity between the original sentence and the generated answer.
-  """
+def get_cosine_similarity(sentence_transformer, sentence, answer):
   embeddings = sentence_transformer.encode([sentence, answer], convert_to_tensor=True)
   similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
   return similarity
+
+def calculate_length_ratio(generated, ground_truth):
+    return len(generated.split()) / len(ground_truth.split())
+
+def calculate_compression_rate(generated, ground_truth):
+    return 1 - (len(ground_truth.split()) / len(generated.split()))
+
+def calculate_rouge_score(generated, ground_truth):
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeL"], use_stemmer=True)
+    scores = scorer.score(ground_truth, generated)
+    return scores
+
+def calculate_redundancy_score(text, n=2):
+    words = text.split()
+    n_grams = list(ngrams(words, n))
+    n_gram_counts = Counter(n_grams)
+    total_n_grams = len(n_grams)
+    repeated_n_grams = sum(count - 1 for count in n_gram_counts.values() if count > 1)
+    return repeated_n_grams / total_n_grams if total_n_grams > 0 else 0
 
 def avoid_rate_limit(llm_choice):
   """
@@ -49,15 +71,15 @@ if __name__ == "__main__":
 
   path = "wiki-qa-data/"
   file_path = path+"concise_lite-{origin}.tsv"
-  output_file_path = path+"concise_lite-{origin}_ans.tsv"
+  output_file_path = path+"concise_lite-{origin}-ans.tsv"
   concise_count = os.path.basename(path).count("concise")
 
   sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2') 
 
   # for all files in the path directory
   for file in os.listdir(path):
-    if file.endswith(".tsv"):
-      origin = file.split("-")[1].split(".")[0]
+    if file.endswith(".tsv") and "-ans" not in file:
+      origin = file.split('.')[0].split("-")[1]
       data = fetch_data(file_path.format(origin=origin))
 
       if not os.path.exists(output_file_path.format(origin=origin)) or os.stat(output_file_path.format(origin=origin)).st_size == 0:
@@ -85,18 +107,20 @@ if __name__ == "__main__":
       
       verbosity_controls = [
         "Answer the following question.",
-        # "Answer the following question with a concise answer.",
+        "Answer the following question with a concise answer.",
       ]
       
       # Use the original sentence from wiki to generate a question
       for (i, question) in enumerate(data["question"]):
-        for verbosity_control in verbosity_controls:
-          if i % 15 == 0 and i != 0: avoid_rate_limit(llm_choice)
+        for (i_v, verbosity_control) in enumerate(verbosity_controls):
+          loop_count = i * len(verbosity_controls) + i_v
+          if loop_count % 15 == 0 and loop_count != 0: 
+            avoid_rate_limit(llm_choice)
           gen_answer, llm_response = generate_answer(llm, verbosity_control, question)
-          print(f"Generated Answer {i+1} with Verbosity Control: {verbosity_control}")
+          print(f"{loop_count+1} - Generated Answer {i+1} with Verbosity Control {i_v+1}: {verbosity_control}")
 
           # Get similarity between the original sentence and the generated answer
-          similarity = get_similarity(sentence_transformer, data["sentence"][i], gen_answer)
+          similarity = calculate_rouge_score(data["sentence"][i], gen_answer)
 
           with open(output_file_path.format(origin=origin), "a") as f:
             f.write(f"{question}\t{data['sentence'][i]}\t{gen_answer}\t{similarity}\t{verbosity_control}\t{data['llm_model'][i]}\t{llm_model_name}\n")

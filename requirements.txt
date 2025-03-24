@@ -14,3 +14,5 @@ dotenv
 pytest
 pandas
 sentence_transformers
+nltk
+rouge_score
