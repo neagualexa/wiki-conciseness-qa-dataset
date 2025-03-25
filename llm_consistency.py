@@ -16,13 +16,6 @@ import nltk
   GOAL: 
   Observe the verbosity of the answers by comparing their similarity with the original sentences.
 
-  NOTE: develop a metric based on this:
-  - if llm response is shorter than ground truth and is contained in the ground truth, then great
-  - if llm response is around the same length as ground truth and is contained in the ground truth, then good
-  - if llm response is longer than ground truth and contains the ground truth, then good but verbose
-  - if llm response does not contain the ground truth regardless of length, then bad
-  also look at redundancy in the answers
-
   NOTE: answering LLM should not have access to any external tools as it introduces a new variable that can affect the results.
 
 """
@@ -61,7 +54,7 @@ def calculate_compression_rate(generated, ground_truth):
     """
     return 1 - (len(ground_truth.split()) / len(generated.split()))
 
-def calculate_rouge_score(generated, ground_truth):
+def calculate_rouge_score(generated, ground_truth, rouges):
     """
     Source: "Conciseness: An Overlooked Language Task" (Stahlberg et al., 2022)
 
@@ -73,8 +66,8 @@ def calculate_rouge_score(generated, ground_truth):
       # ROUGE S: Measure skip-bigram (words in the pair can have a gap between them) - content matching with sentence structure
       # ROUGE SU: Measure skip-bigram and unigram - content matching with sentence structure
     """
-    scorer = rouge_scorer.RougeScorer(["rouge2", "rougeL"], use_stemmer=True)
-    scores = scorer.score(ground_truth, generated)
+    scorer = rouge_scorer.RougeScorer(rouges, use_stemmer=True)
+    scores = scorer.score(target=ground_truth, prediction=generated)
     return scores
 
 def calculate_redundancy_score(text, n=2):
@@ -96,14 +89,16 @@ def avoid_rate_limit(llm_choice):
     print("Sleeping for 60 seconds to avoid Free Tier rate limit...")
     time.sleep(60)
 
-if __name__ == "__main__":
+# --------------------
+path = "wiki-qa-data/"
+file_path = path+"concise_lite-{origin}.tsv"
+output_file_path = path+"concise_lite-{origin}-ans.tsv"
+concise_count = os.path.basename(path).count("concise")
 
-  path = "wiki-qa-data/"
-  file_path = path+"concise_lite-{origin}.tsv"
-  output_file_path = path+"concise_lite-{origin}-ans.tsv"
-  concise_count = os.path.basename(path).count("concise")
-
-  sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2') 
+def generate_LLM_responses():
+  """
+  Generate LLM responses for the questions.
+  """
 
   llm_choice = "google" # or "google", "deepseek", "ollama"
   if llm_choice == "openai":
@@ -126,6 +121,7 @@ if __name__ == "__main__":
     "Answer the following question with a concise answer.",
     "Directly answer the following question.",
     "Answer the following question without unnecessary details.",
+    "Answer the following question. Keep your answer short.",
   ]
 
   # for all files in the path directory
@@ -136,7 +132,7 @@ if __name__ == "__main__":
 
       if not os.path.exists(output_file_path.format(origin=origin)) or os.stat(output_file_path.format(origin=origin)).st_size == 0:
         with open(output_file_path.format(origin=origin), "a") as f:
-          f.write("question\tgold_sentence\tanswer\tsimilarity\tverbosity_control\tllm_model_question\tllm_model_answer\n")
+          f.write("question\tgold_sentence\tanswer\tverbosity_control\tllm_model_question\tllm_model_answer\n")
   
       # NOTE: GET ONLY TOP X ROWS
       # data = data.head(10)
@@ -154,12 +150,96 @@ if __name__ == "__main__":
 
           print(f"{origin}-{loop_count+1} - Generated Answer {i+1} with Verbosity Control {i_v+1}: {verbosity_control}")
 
-          # Get similarity between the original sentence and the generated answer
-          similarity = calculate_rouge_score(data["sentence"][i], gen_answer)
-
           with open(output_file_path.format(origin=origin), "a") as f:
-            f.write(f"{question}\t{data['sentence'][i]}\t{gen_answer}\t{similarity}\t{verbosity_control}\t{data['llm_model'][i]}\t{llm_model_name}\n")
+            f.write(f"{question}\t{data['sentence'][i]}\t{gen_answer}\t{verbosity_control}\t{data['llm_model'][i]}\t{llm_model_name}\n")
       
       print("\n")
       print(f"Finished generating questions for the original sentences: {len(data)} with verbosity control: {verbosity_control}")
       print("\n")
+
+# --------------------
+
+    """
+    Calculate similarity between the original sentence and the generated answer.
+
+    NOTE: develop a metric based on this:
+    - if llm response is shorter than ground truth and is contained in the ground truth, then great
+    - if llm response is around the same length as ground truth and is contained in the ground truth, then good
+    - if llm response is longer than ground truth and contains the ground truth, then good but verbose
+    - if llm response does not contain the ground truth regardless of length, then bad
+    also look at redundancy in the answers
+    """
+def calculate_similarity(generated, ground_truth, sentence_transformer=None):
+    """
+    Calculate similarity between the original sentence and the generated answer.
+    """
+    # Length-based Metrics
+    length_ratio = calculate_length_ratio(generated, ground_truth)
+    compression_rate = calculate_compression_rate(generated, ground_truth)
+    
+    # ROUGE Scores
+    rouges = ["rouge2", "rougeL"]
+    rouge_scores = calculate_rouge_score(generated, ground_truth, rouges=rouges)
+    rouge_2_f1 = rouge_scores["rouge2"].fmeasure
+    rouge_L_f1 = rouge_scores["rougeL"].fmeasure
+    rouge_scores = {rouge: { "f1": rouge_scores[rouge].fmeasure, \
+                            "precision": rouge_scores[rouge].precision, \
+                            "recall": rouge_scores[rouge].recall} \
+                            for rouge in rouges}
+    
+    # Semantic Similarity
+    if sentence_transformer is None:
+        sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')  # Load model if not provided
+    embeddings = sentence_transformer.encode([ground_truth, generated], convert_to_tensor=True)
+    semantic_similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+    
+    # Weighted Combination of Metrics
+    similarity_score = (
+        (0.4 * semantic_similarity) + # Semantic similarity for meaning
+        (0.3 * rouge_L_f1) +  # ROUGE-L for structural similarity
+        (0.2 * rouge_2_f1) +  # ROUGE-2 for content overlap
+        (0.1 * (1 - length_ratio))  # Inverse length ratio for conciseness
+    )
+    
+    return max(0, min(1, similarity_score)), rouge_scores, semantic_similarity # Ensure score is between 0 and 1
+
+
+# --------------------
+
+def analyse_LLM_consistency():
+    """
+    Analyze the consistency of LLM responses by calculating similarity scores
+    """
+    sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+
+    for file in os.listdir(path):
+        if file.endswith(".tsv") and "-ans" in file:
+            file_path = os.path.join(path, file)
+            data = pd.read_csv(file_path, sep="\t")
+
+            # Add a new column for similarity scores
+            similarity_scores = []
+            rouge_scores = []
+            cosine_scores = []
+
+            # Iterate through the rows and calculate similarity
+            for i in range(len(data)):
+                similarity, rouge_score, cosine_score = calculate_similarity(data["answer"][i], data["gold_sentence"][i], sentence_transformer)
+                similarity_scores.append(similarity)
+                rouge_scores.append(rouge_score)
+                cosine_scores.append(cosine_score)
+
+            # Add the similarity scores to the DataFrame
+            data["similarity"] = similarity_scores
+            data["rouge_scores"] = rouge_scores
+            data["cosine_similarity"] = cosine_scores
+
+            # Save the updated DataFrame back to the CSV file
+            data.to_csv(file_path, sep="\t", index=False)
+            print(f"Updated file: {file_path} with similarity scores.")
+
+if __name__ == "__main__":
+    # generate_LLM_responses()
+    # print("LLM responses generated.")
+    analyse_LLM_consistency()
+    print("Analysis completed.")
