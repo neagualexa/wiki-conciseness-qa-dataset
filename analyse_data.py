@@ -37,6 +37,12 @@ for file in os.listdir(path):
           grouped_data[f'{rougeN}_f1_avg'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
           grouped_data[f'{rougeN}_f1_max'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: max(x) if x else 0)
           grouped_data[f'{rougeN}_f1_max_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: x.index(max(x)) if x else -1)
+          grouped_data[f'{rougeN}_f1_max_top3'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
 
         print(f"\nData Analysis for: {origin}")
+        grouped_data['origin'] = origin
         print(grouped_data)
+
+        # Save to CSV
+        grouped_data.to_csv(path + f"analysis.csv", mode='a', header=not os.path.exists(path + f"analysis.csv"), index=False)
+        print(f"Analysis appended to: {path}analysis.csv")
