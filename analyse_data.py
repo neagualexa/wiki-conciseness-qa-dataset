@@ -16,24 +16,27 @@ for file in os.listdir(path):
         # Group by verbosity_control and aggregate similarity values
         grouped_data = data.groupby('verbosity_control')['similarity'].apply(list).reset_index()
 
-        # Extract F1 scores (fmeasure) from the similarity strings
+        # Extract F1 scores (fmeasure) from the ROUGE SCORE similarity strings
+        rouges = ["rouge2", "rougeL"]
+
         def extract_f1_scores(similarity_list):
-            rouge1_f1_scores = []
-            rougeL_f1_scores = []
+          rouges_f1_scores = []
+          for rougeN in rouges:
+            rougeN_f1_scores = []
             for similarity in similarity_list:
                 # Use regex to extract the fmeasure value for rouge1
-                match = re.search(r"'rouge1':.*?fmeasure=(\d+\.\d+)", similarity)
+                match = re.search(fr"'{rougeN}':.*?fmeasure=(\d+\.\d+)", similarity)
                 if match:
-                    rouge1_f1_scores.append(float(match.group(1)))  # Extract and convert to float
-                match = re.search(r"'rougeL':.*?fmeasure=(\d+\.\d+)", similarity)
-                if match:
-                    rougeL_f1_scores.append(float(match.group(1)))  # Extract and convert to float
-            return rouge1_f1_scores, rougeL_f1_scores
+                    rougeN_f1_scores.append(float(match.group(1)))  # Extract and convert to float
+            rouges_f1_scores.append(rougeN_f1_scores)
+          return rouges_f1_scores
 
-        grouped_data['rouge1_f1_scores'], grouped_data['rougeL_f1_scores'] = grouped_data['similarity'].apply(extract_f1_scores)
+        rouges_f1_scores = grouped_data['similarity'].apply(extract_f1_scores)
+        for rougeN, f1_scores in zip(rouges, zip(*rouges_f1_scores)):
+          grouped_data[f'{rougeN}_f1_scores'] = f1_scores
+          grouped_data[f'{rougeN}_f1_avg'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
+          grouped_data[f'{rougeN}_f1_max'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: max(x) if x else 0)
+          grouped_data[f'{rougeN}_f1_max_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: x.index(max(x)) if x else -1)
 
-        # Calculate the mean F1 score for each verbosity_control
-        grouped_data['mean_rouge1_f1_score'] = grouped_data['rouge1_f1_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
-        grouped_data['mean_rougeL_f1_score'] = grouped_data['rougeL_f1_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
-
+        print(f"\nData Analysis for: {origin}")
         print(grouped_data)

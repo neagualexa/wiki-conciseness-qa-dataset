@@ -16,6 +16,15 @@ import nltk
   GOAL: 
   Observe the verbosity of the answers by comparing their similarity with the original sentences.
 
+  NOTE: develop a metric based on this:
+  - if llm response is shorter than ground truth and is contained in the ground truth, then great
+  - if llm response is around the same length as ground truth and is contained in the ground truth, then good
+  - if llm response is longer than ground truth and contains the ground truth, then good but verbose
+  - if llm response does not contain the ground truth regardless of length, then bad
+  also look at redundancy in the answers
+
+  NOTE: answering LLM should not have access to any external tools as it introduces a new variable that can affect the results.
+
 """
 
 
@@ -41,17 +50,37 @@ def get_cosine_similarity(sentence_transformer, sentence, answer):
   return similarity
 
 def calculate_length_ratio(generated, ground_truth):
+    """
+    Source: "Precise Length Control in Large Language Models" (Butcher et al., 2024)
+    """
     return len(generated.split()) / len(ground_truth.split())
 
 def calculate_compression_rate(generated, ground_truth):
+    """
+    Source: "Precise Length Control in Large Language Models" (Butcher et al., 2024)
+    """
     return 1 - (len(ground_truth.split()) / len(generated.split()))
 
 def calculate_rouge_score(generated, ground_truth):
-    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeL"], use_stemmer=True)
+    """
+    Source: "Conciseness: An Overlooked Language Task" (Stahlberg et al., 2022)
+
+    Calculate ROUGE scores for the generated answer and the ground truth.
+      ROUGE 1: Measure overap of unigrams (single words) - basic content matching
+      ROUGE 2: Measure overlap of bigrams - content matching with some sentence structure
+      ROUGE L: Measure longest common subsequence of words - content matching with sentence structure
+      # ROUGE W: Measure weighted longest common subsequence of words - content matching with sentence structure
+      # ROUGE S: Measure skip-bigram (words in the pair can have a gap between them) - content matching with sentence structure
+      # ROUGE SU: Measure skip-bigram and unigram - content matching with sentence structure
+    """
+    scorer = rouge_scorer.RougeScorer(["rouge2", "rougeL"], use_stemmer=True)
     scores = scorer.score(ground_truth, generated)
     return scores
 
 def calculate_redundancy_score(text, n=2):
+    """
+    Source: "Verbosity ≠ Veracity: Demystify Verbosity Compensation Behavior of Large Language Models" (Zhang et al., 2024)
+    """
     words = text.split()
     n_grams = list(ngrams(words, n))
     n_gram_counts = Counter(n_grams)
@@ -76,6 +105,29 @@ if __name__ == "__main__":
 
   sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2') 
 
+  llm_choice = "google" # or "google", "deepseek", "ollama"
+  if llm_choice == "openai":
+    llm = OpenAILLMs().get_llm()
+    llm_model_name = OpenAILLMs().get_model_name()
+  elif llm_choice == "google":
+    llm = GoogleAILLMs().get_llm()
+    llm_model_name = GoogleAILLMs().get_model_name()
+  elif llm_choice == "deepseek":
+    llm = DeepSeekLLMs().get_llm()
+    llm_model_name = DeepSeekLLMs().get_model_name()
+  elif llm_choice == "ollama":
+    llm = OllamaLLMs().get_llm()
+    llm_model_name = OllamaLLMs().get_model_name()
+  else:
+    raise ValueError("Invalid LLM choice")
+  
+  verbosity_controls = [
+    "Answer the following question.",
+    "Answer the following question with a concise answer.",
+    "Directly answer the following question.",
+    "Answer the following question without unnecessary details.",
+  ]
+
   # for all files in the path directory
   for file in os.listdir(path):
     if file.endswith(".tsv") and "-ans" not in file:
@@ -88,36 +140,19 @@ if __name__ == "__main__":
   
       # NOTE: GET ONLY TOP X ROWS
       # data = data.head(10)
-
-      llm_choice = "google" # or "google", "deepseek", "ollama"
-      if llm_choice == "openai":
-        llm = OpenAILLMs().get_llm()
-        llm_model_name = OpenAILLMs().get_model_name()
-      elif llm_choice == "google":
-        llm = GoogleAILLMs().get_llm()
-        llm_model_name = GoogleAILLMs().get_model_name()
-      elif llm_choice == "deepseek":
-        llm = DeepSeekLLMs().get_llm()
-        llm_model_name = DeepSeekLLMs().get_model_name()
-      elif llm_choice == "ollama":
-        llm = OllamaLLMs().get_llm()
-        llm_model_name = OllamaLLMs().get_model_name()
-      else:
-        raise ValueError("Invalid LLM choice")
-      
-      verbosity_controls = [
-        "Answer the following question.",
-        "Answer the following question with a concise answer.",
-      ]
       
       # Use the original sentence from wiki to generate a question
       for (i, question) in enumerate(data["question"]):
         for (i_v, verbosity_control) in enumerate(verbosity_controls):
           loop_count = i * len(verbosity_controls) + i_v
-          if loop_count % 15 == 0 and loop_count != 0: 
+          try:
+            gen_answer, llm_response = generate_answer(llm, verbosity_control, question)
+          except Exception as e:
+            print(f"Error: {e}")
             avoid_rate_limit(llm_choice)
-          gen_answer, llm_response = generate_answer(llm, verbosity_control, question)
-          print(f"{loop_count+1} - Generated Answer {i+1} with Verbosity Control {i_v+1}: {verbosity_control}")
+            gen_answer, llm_response = generate_answer(llm, verbosity_control, question)
+
+          print(f"{origin}-{loop_count+1} - Generated Answer {i+1} with Verbosity Control {i_v+1}: {verbosity_control}")
 
           # Get similarity between the original sentence and the generated answer
           similarity = calculate_rouge_score(data["sentence"][i], gen_answer)
@@ -128,4 +163,3 @@ if __name__ == "__main__":
       print("\n")
       print(f"Finished generating questions for the original sentences: {len(data)} with verbosity control: {verbosity_control}")
       print("\n")
-      avoid_rate_limit(llm_choice)

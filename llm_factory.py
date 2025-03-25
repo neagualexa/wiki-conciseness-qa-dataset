@@ -7,7 +7,10 @@ from langchain_community.embeddings import OllamaEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain.agents import initialize_agent, AgentType
 from dotenv import load_dotenv
+import time
 load_dotenv()
 
 class AzureLLMs:
@@ -82,16 +85,32 @@ class OpenAILLMs:
         return os.environ['OPENAI_MODEL']
 
 class GoogleAILLMs:
-    def __init__(self, temperature: int = 0):
+    def __init__(self, temperature: int = 0, search: bool = False):
 
         self._google_llm = ChatGoogleGenerativeAI(
             model=os.environ['GOOGLE_AI_MODEL'],
             temperature=temperature,
             google_api_key=os.environ['GOOGLE_AI_API_KEY'],
         )
+
+        if search:
+            tools = [ReliableDuckDuckGoSearch()]
+            # tools = [DuckDuckGoSearchRun()]
+            self._google_agent = initialize_agent(
+                tools,
+                self._google_llm,
+                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                verbose=True,
+            )
+
     
-    def get_llm(self):
+    def get_llm(self, search: bool = False):
+        if search:
+            return self._google_agent
         return self._google_llm
+    
+    def call_agent(self, query):
+        return self._google_agent.run(query)
     
     def get_model_name(self):
         return os.environ['GOOGLE_AI_MODEL']
@@ -110,3 +129,17 @@ class DeepSeekLLMs:
     
     def get_model_name(self):
         return os.environ['DEEPSEEK_MODEL']
+    
+
+# SEARCH TOOLS
+class ReliableDuckDuckGoSearch(DuckDuckGoSearchRun):
+    def run(self, query, **kwargs):  # Accepts extra arguments to avoid errors
+        for attempt in range(3):  # Retry up to 3 times
+            try:
+                result = super().run(query)
+                if result:  
+                    return result  
+            except Exception as e:
+                print(f"Error on attempt {attempt+1}: {e}")
+                time.sleep(2)  # Wait before retrying
+        return "Search failed after 3 attempts."

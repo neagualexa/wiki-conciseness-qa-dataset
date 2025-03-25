@@ -25,14 +25,18 @@ def fetch_data(file_path):
   data.columns = ["sentence", "concise_1", "concise_2", "url"] # for line we have 2 concise sentences, for full we have 5
   return data
 
-def generate_question(llm, sentence):
+def generate_question(llm, sentence, url, search=False):
   """
   Generate a question based on the provided sentence using an LLM model.
   """
-  # prompt = f"Write a question based on the following sentence:\n\n{sentence}\n\nQuestion:"
-  prompt = f"Write a question that can be answered directly by the following sentence:\n\n{sentence}\n\nQuestion:"
+  if search:
+    prompt = f"Based on the key concepts from this URL: {url}, write a question that can be answered directly by the following sentence:\n\n{sentence}\n\nQuestion:"
+  else:
+    prompt = f"Write a question that can be answered directly by the following sentence:\n\n{sentence}\n\nQuestion:"
+
   response = llm.invoke(prompt)
-  gen_question = response.content.strip()
+  print(response)
+  gen_question = response["output"] if search else response.content.strip()
   return gen_question, response
 
 def avoid_rate_limit(llm_choice):
@@ -45,19 +49,13 @@ def avoid_rate_limit(llm_choice):
 
 if __name__ == "__main__":
 
+  search = True # Allow Search to wiki url for more context
   file_path = "wiki-conciseness-data/concise_lite.tsv"
   output_file_path = "wiki-qa-data/concise_lite-{origin}.tsv"
   data = fetch_data(file_path)
   concise_count = data.columns.str.contains("concise").sum()
 
-  # if output file does not exist or is empty, add the headers
-  if not os.path.exists(output_file_path.format(origin="sentence")) or os.stat(output_file_path.format(origin="sentence")).st_size == 0:
-    with open(output_file_path.format(origin="sentence"), "a") as f:
-      f.write("sentence\tquestion\tllm_model\n")
-  for c_i in range(1, concise_count+1):
-    if not os.path.exists(output_file_path.format(origin=f"concise_{c_i}")) or os.stat(output_file_path.format(origin=f"concise_{c_i}")).st_size == 0:
-      with open(output_file_path.format(origin=f"concise_{c_i}"), "a") as f:
-        f.write("sentence\tquestion\tllm_model\n")
+  origins = ["sentence"] + [f"concise_{i}" for i in range(1, concise_count+1)]
 
   # NOTE: GET ONLY TOP X ROWS
   data = data.head(20)
@@ -67,7 +65,7 @@ if __name__ == "__main__":
     llm = OpenAILLMs().get_llm()
     llm_model_name = OpenAILLMs().get_model_name()
   elif llm_choice == "google":
-    llm = GoogleAILLMs().get_llm()
+    llm = GoogleAILLMs(search=search).get_llm(search=search)
     llm_model_name = GoogleAILLMs().get_model_name()
   elif llm_choice == "deepseek":
     llm = DeepSeekLLMs().get_llm()
@@ -78,28 +76,25 @@ if __name__ == "__main__":
   else:
     raise ValueError("Invalid LLM choice")
   
-  # Use the original sentence from wiki to generate a question
-  for (i, sentence) in enumerate(data["sentence"]):
-    if i % 15 == 0 and i != 0: avoid_rate_limit(llm_choice)
-    gen_question, llm_response = generate_question(llm, sentence)
-    print(f"Generated Question {i+1}:", gen_question)
-    with open(output_file_path.format(origin="sentence"), "a") as f:
-      f.write(f"{sentence}\t{gen_question}\t{llm_model_name}\n")
-  
-  print("\n")
-  print(f"Finished generating questions for the original sentences: {len(data)}")
-  print("\n")
-  avoid_rate_limit(llm_choice)
+  for origin in origins:
+    if origin not in data.columns:
+      raise ValueError(f"Data must contain '{origin}' column.")
+    if not os.path.exists(output_file_path.format(origin=origin)) or os.stat(output_file_path.format(origin=origin)).st_size == 0:
+      with open(output_file_path.format(origin=origin), "a") as f:
+        f.write("sentence\tquestion\tllm_model\n")
 
-  # Use the concise sentences from wiki to generate a question
-  for c_i in range(1, concise_count+1):
-    for (i, sentence) in enumerate(data[f"concise_{c_i}"]):
-      if i % 15 == 0 and i != 0: avoid_rate_limit(llm_choice)
-      gen_question, llm_response = generate_question(llm, sentence)
-      print(f"Generated Question {i+1}:", gen_question)
-      with open(output_file_path.format(origin=f"concise_{c_i}"), "a") as f:
+    for (i, sentence) in enumerate(data[origin]):
+      try:
+        gen_question, llm_response = generate_question(llm, sentence, data["url"][i], search=search)
+      except Exception as e:
+        print(f"Error: {e}")
+        avoid_rate_limit(llm_choice)
+        gen_question, llm_response = generate_question(llm, sentence, data["url"][i], search=search)
+
+      print(f"{origin} - Generated Question {i+1}:", gen_question)
+      with open(output_file_path.format(origin=origin), "a") as f:
         f.write(f"{sentence}\t{gen_question}\t{llm_model_name}\n")
+  
     print("\n")
-    print(f"Finished generating questions for the concise_{c_i} sentences: {len(data)}")
+    print(f"Finished generating questions for the {origin}: {len(data)}")
     print("\n")
-    if c_i != concise_count+1: avoid_rate_limit(llm_choice)
