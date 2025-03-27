@@ -12,5 +12,22 @@ The goal is to detect how various prompting techniques affect the conciseness of
 
 ## Similarity Metrics
 
-- **Cosine Similarity**: Measures the semantic similarity between sentences.
-- **Verbosity Similarity**: (Metric to be determined).
+- **BERTScore Similarity**: Measures the semantic similarity between sentences.
+- **ROUGE Score**: Measures n-gram similarities.
+- **Length Ratio**: Comparing lengths of two sentences.
+- **Verbosity Score**: A weighted combination of the metrics above.
+
+## Repo structure
+
+```
+wiki-conciseness-data/          # original Wiki Conciseness Dataset
+│
+wiki-qa-data/
+│   ├── data/                   # Progress data for comparing different prompts' effect on LLM responses
+│   ├── llm_factory.py          # Centralised script for LLM API Calls [Ollama, OpenAI, Google, ...]       
+│   ├── questions_gen.py        # Script to generate Questions based on the Wiki Conciseness Dataset
+│   ├── llm_consistency.py      # Script to generate answers to the synthetic questions & apply similarity metrics
+│   ├── analyse_data.py         # Script to analyse metrics over all data-points and graph results
+│
+│   ├── literature.md           # Literature Referenced for Metrics
+│   ├── README.md               # Project documentation
