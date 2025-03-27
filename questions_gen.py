@@ -30,9 +30,9 @@ def generate_question(llm, sentence, url, search=False):
   Generate a question based on the provided sentence using an LLM model.
   """
   if search:
-    prompt = f"Based on the key concepts from this URL: {url}, write a question that can be answered directly by the following sentence:\n\n{sentence}\n\nQuestion:"
+    prompt = f"Using the key concepts from the URL: {url}, generate a question that is directly answered by the following sentence:{sentence}\n\nEnsure that the question is clear, concise, and directly leads to the given sentence as an answer.\nQuestion:"
   else:
-    prompt = f"Write a question that can be answered directly by the following sentence:\n\n{sentence}\n\nQuestion:"
+    prompt = f"Generate a question that is directly answered by the following sentence:{sentence}\n\nEnsure that the question is clear, concise, and directly leads to the given sentence as an answer.\nQuestion:"
 
   response = llm.invoke(prompt)
   print(response)

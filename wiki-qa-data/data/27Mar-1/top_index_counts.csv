@@ -1,0 +1,29 @@
+Verbosity Control,Metric,Top1 Index,Top1 Count,Top2 Index,Top2 Count,Top3 Index,Top3 Count
+Answer the following question with a concise answer.,rouge2_f1,11,3,16,3,6,2
+Answer the following question without unnecessary details.,rouge2_f1,11,3,4,2,15,2
+Answer the following question.,rouge2_f1,11,3,4,3,10,2
+Answer the following question. Keep your answer short.,rouge2_f1,11,3,16,2,9,2
+Directly answer the following question.,rouge2_f1,10,3,16,2,11,2
+Provide a direct and concise answer to the following question without adding extra context or explanation.,rouge2_f1,11,3,4,3,6,1
+"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",rouge2_f1,11,3,4,2,19,2
+Answer the following question with a concise answer.,rougeL_f1,11,3,16,2,4,1
+Answer the following question without unnecessary details.,rougeL_f1,11,3,4,2,6,1
+Answer the following question.,rougeL_f1,11,3,15,2,4,1
+Answer the following question. Keep your answer short.,rougeL_f1,11,3,9,1,16,1
+Directly answer the following question.,rougeL_f1,16,3,11,2,9,2
+Provide a direct and concise answer to the following question without adding extra context or explanation.,rougeL_f1,11,3,4,2,6,2
+"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",rougeL_f1,11,3,4,2,19,2
+Answer the following question with a concise answer.,bert_f1,16,3,19,1,6,1
+Answer the following question without unnecessary details.,bert_f1,16,3,19,2,6,1
+Answer the following question.,bert_f1,10,2,7,2,16,2
+Answer the following question. Keep your answer short.,bert_f1,9,2,16,2,19,1
+Directly answer the following question.,bert_f1,9,3,16,3,10,2
+Provide a direct and concise answer to the following question without adding extra context or explanation.,bert_f1,17,2,19,2,16,2
+"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",bert_f1,17,2,16,2,6,1
+Answer the following question with a concise answer.,similarity,16,3,6,1,2,1
+Answer the following question without unnecessary details.,similarity,4,2,16,2,15,2
+Answer the following question.,similarity,10,2,4,2,16,2
+Answer the following question. Keep your answer short.,similarity,11,3,9,2,16,2
+Directly answer the following question.,similarity,16,3,11,2,10,2
+Provide a direct and concise answer to the following question without adding extra context or explanation.,similarity,17,2,4,2,16,2
+"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",similarity,19,2,16,2,6,1

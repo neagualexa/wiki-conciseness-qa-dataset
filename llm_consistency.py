@@ -130,10 +130,11 @@ def generate_LLM_responses():
   
   verbosity_controls = [
     "Answer the following question.",
-    "Answer the following question with a concise answer.",
     "Directly answer the following question.",
-    "Answer the following question without unnecessary details.",
+    "Directly answer the following question. Avoid any additional context or explanations.",
+    "Directly answer the following question, making sure to avoid any additional context or explanations.",
     "Answer the following question. Keep your answer short.",
+    "Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details."
   ]
 
   # for all files in the path directory
@@ -232,7 +233,8 @@ def analyse_LLM_consistency():
             data = pd.read_csv(file_path, sep="\t")
 
             # Delete existing similarity columns: similarity	rouge_scores	cosine_similarity	bert_scores	length_ratio
-            data.drop(columns=['similarity', 'rouge_scores', 'bert_scores', 'length_ratio', 'cosine_similarity'], inplace=True)
+            if all(col in data.columns for col in ["similarity", "rouge_scores", "bert_scores", "length_ratio"]):
+              data.drop(columns=['similarity', 'rouge_scores', 'bert_scores', 'length_ratio'], inplace=True)
 
             # Add a new column for similarity scores
             similarity_scores = []
@@ -259,7 +261,7 @@ def analyse_LLM_consistency():
             print(f"Updated file: {file_path} with similarity scores.\n\n")
 
 if __name__ == "__main__":
-    # generate_LLM_responses()
-    # print("LLM responses generated.")
+    generate_LLM_responses()
+    print("LLM responses generated.")
     analyse_LLM_consistency()
     print("Analysis completed.")

@@ -1,14 +1,9 @@
 import pandas as pd
 import os
-import re 
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import norm
 
-path = "wiki-qa-data/"
-
-def analyse_data(path, rouges):
+def analyse_data(path, analysis_file, rouges):
   for file in os.listdir(path):
       if file.endswith(".tsv") and "-ans" in file:
           origin = file.split('.')[0].split("-")[1]
@@ -20,44 +15,44 @@ def analyse_data(path, rouges):
 
           # Group by verbosity_control and aggregate rouge_scores, similarity, cosine_similarity columns
           grouped_data = data.groupby('verbosity_control')['rouge_scores'].apply(list).reset_index()
-          grouped_data['similarity'] = data.groupby('verbosity_control')['similarity'].apply(list).reset_index()['similarity']
-          grouped_data['length_ratio'] = data.groupby('verbosity_control')['length_ratio'].apply(list).reset_index()['length_ratio']
+          grouped_data['similarity_scores'] = data.groupby('verbosity_control')['similarity'].apply(list).reset_index()['similarity']
+          grouped_data['length_ratio_scores'] = data.groupby('verbosity_control')['length_ratio'].apply(list).reset_index()['length_ratio']
           grouped_data['bert_scores'] = data.groupby('verbosity_control')['bert_scores'].apply(list).reset_index()['bert_scores']
 
           # Extract F1 scores (fmeasure) from the ROUGE SCORE strings
-          def extract_f1_scores(rouge_scores_list, rougeBool=False, bertBool=False):
-              f1_scores = {rougeN: [] for rougeN in rouges}
-              for rouge_scores in rouge_scores_list:
+          def extract_f1_scores(scores_list, rougeBool=False, bertBool=False):
+              f1_scores = {"bert": []}
+              f1_scores.update({rougeN: [] for rougeN in rouges})
+              for scores in scores_list:
                   try:
-                      rouge_scores_dict = eval(rouge_scores)  # Convert string to dictionary
+                      scores_dict = eval(scores)  # Convert string to dictionary
                       if rougeBool:
                           for rougeN in rouges:
-                              if rougeN in rouge_scores_dict:
-                                  f1_scores[rougeN].append(rouge_scores_dict[rougeN]['f1'])
+                              if rougeN in scores_dict:
+                                  f1_scores[rougeN].append(scores_dict[rougeN]['f1'])
                       elif bertBool:
-                          f1_scores['bert'] = [score['f1'] for score in rouge_scores_dict.values()]
+                          f1_scores['bert'].append(scores_dict['f1'])
                   except Exception as e:
-                      print(f"Error processing rouge_scores: {rouge_scores}. Error: {e}")
-                      for rougeN in rouges:
-                          f1_scores[rougeN].append(0)  # Append 0 in case of error
+                      print(f"Error processing rouge_scores: {scores}. Error: {e}")
               return f1_scores
 
           # EXTRACT ROUGE F1 SCORES
           rogue_f1_scores = grouped_data['rouge_scores'].apply(lambda x: extract_f1_scores(x, rougeBool=True))
           for rougeN in rouges:
-              grouped_data[f'{rougeN}_f1_scores'] = rogue_f1_scores.apply(lambda x: x[rougeN])
-              grouped_data[f'{rougeN}_f1_avg'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
-              grouped_data[f'{rougeN}_f1_std'] = grouped_data[f'{rougeN}_f1_scores'].apply(
+            grouped_data[f'{rougeN}_f1_scores'] = rogue_f1_scores.apply(lambda x: x[rougeN])
+            grouped_data[f'{rougeN}_f1_avg'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
+            grouped_data[f'{rougeN}_f1_std'] = grouped_data[f'{rougeN}_f1_scores'].apply(
                     lambda x: (sum((score - (sum(x) / len(x)))**2 for score in x) / len(x))**0.5 if x else 0
                 )
-              grouped_data[f'{rougeN}_f1_max'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: max(x) if x else 0)
-              grouped_data[f'{rougeN}_f1_max_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: x.index(max(x)) if x else -1)
-              grouped_data[f'{rougeN}_f1_max_top3'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
-              grouped_data[f'{rougeN}_f1_max_top3_index'] = grouped_data[f'{rougeN}_f1_max_top3'].apply(lambda x: [x.index(score) for score in x] if x else -1)
-              grouped_data[f'{rougeN}_f1_max_top3_answer'] = grouped_data[f'{rougeN}_f1_max_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
-
+            grouped_data[f'{rougeN}_f1_max'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: max(x) if x else 0)
+            grouped_data[f'{rougeN}_f1_max_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: x.index(max(x)) if x else -1)
+            grouped_data[f'{rougeN}_f1_top3'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
+            grouped_data[f'{rougeN}_f1_top3_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
+            grouped_data[f'{rougeN}_f1_top3_answer'] = grouped_data[f'{rougeN}_f1_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
+          
           # EXTRACT BERT SCORES F1 SCORES
-          bert_f1_scores = grouped_data['rouge_scores'].apply(lambda x: extract_f1_scores(x, bertBool=True))
+          bert_f1_scores = grouped_data['bert_scores'].apply(lambda x: extract_f1_scores(x, bertBool=True))
+          print(bert_f1_scores[0])
           bert_f1_scores = bert_f1_scores.apply(lambda x: x['bert'])
           grouped_data['bert_f1_scores'] = bert_f1_scores
           grouped_data['bert_f1_avg'] = bert_f1_scores.apply(lambda x: sum(x) / len(x) if x else 0)
@@ -66,13 +61,13 @@ def analyse_data(path, rouges):
           )
           grouped_data['bert_f1_max'] = bert_f1_scores.apply(lambda x: max(x) if x else 0)
           grouped_data['bert_f1_max_index'] = bert_f1_scores.apply(lambda x: x.index(max(x)) if x else -1)
-          grouped_data['bert_f1_max_top3'] = bert_f1_scores.apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
-          grouped_data['bert_f1_max_top3_index'] = grouped_data['bert_f1_max_top3'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
-          grouped_data['bert_f1_max_top3_answer'] = grouped_data['bert_f1_max_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
+          grouped_data['bert_f1_top3'] = bert_f1_scores.apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
+          grouped_data['bert_f1_top3_index'] = grouped_data['bert_f1_scores'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
+          grouped_data['bert_f1_top3_answer'] = grouped_data['bert_f1_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
 
           # EXTRACT TOP 3 similarity scores
-          grouped_data['similarity_top3'] = grouped_data['similarity'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
-          grouped_data['similarity_top3_index'] = grouped_data['similarity'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
+          grouped_data['similarity_top3'] = grouped_data['similarity_scores'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
+          grouped_data['similarity_top3_index'] = grouped_data['similarity_scores'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
           grouped_data['similarity_top3_answer'] = grouped_data['similarity_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
 
           print(f"\nData Analysis for: {origin}")
@@ -81,10 +76,66 @@ def analyse_data(path, rouges):
           print(grouped_data)
 
           # Save to CSV
-          grouped_data.to_csv(path + f"analysis.csv", mode='a', header=not os.path.exists(path + f"analysis.csv"), index=False)
-          print(f"Analysis appended to: {path}analysis.csv")
+          grouped_data.to_csv(f"{path}{analysis_file}", mode='a', header=not os.path.exists(path + f"analysis.csv"), index=False)
+          print(f"Analysis appended to: {path}{analysis_file}")
 
-def display_metric_scores(path, metrics):
+def save_top_index_counts_to_csv(df, verbosity_controls, metrics, output_file):
+    """
+    Saves the top 3 indices and their counts for each metric into a CSV file with separate columns for each top index and count.
+    """
+    csv_data = []
+
+    for metric in metrics:
+        for control in verbosity_controls:
+            column = f"{metric}_top3_index"
+            if column in df.columns:
+                subset = df[df['verbosity_control'] == control][column].dropna()
+
+                all_indices = subset.apply(eval).explode().astype(int)  # Convert string representations of lists to actual lists
+                index_counts = all_indices.value_counts().sort_values(ascending=False)
+
+                top_indices = index_counts.index.tolist()[:3]
+                top_counts = index_counts.tolist()[:3]
+
+                # Pad with "N/A" if there are fewer than 3 indices
+                while len(top_indices) < 3:
+                    top_indices.append("N/A")
+                    top_counts.append("N/A")
+
+                # Add a row to the CSV data
+                csv_data.append({
+                    "Verbosity Control": control,
+                    "Metric": metric,
+                    "Top1 Index": top_indices[0],
+                    "Top1 Count": top_counts[0],
+                    "Top2 Index": top_indices[1],
+                    "Top2 Count": top_counts[1],
+                    "Top3 Index": top_indices[2],
+                    "Top3 Count": top_counts[2],
+                })
+            else:
+                # If the column doesn't exist, add a row with "N/A"
+                csv_data.append({
+                    "Verbosity Control": control,
+                    "Metric": metric,
+                    "Top1 Index": "N/A",
+                    "Top1 Count": "N/A",
+                    "Top2 Index": "N/A",
+                    "Top2 Count": "N/A",
+                    "Top3 Index": "N/A",
+                    "Top3 Count": "N/A",
+                })
+
+    # Convert the data to a DataFrame
+    csv_df = pd.DataFrame(csv_data)
+
+    # Save the DataFrame to a CSV file
+    csv_df.to_csv(output_file, index=False)
+    print(f"Top 3 index counts saved to {output_file}")
+
+# =========== PLOTTING FUNCTIONS ===========
+
+def display_metric_scores(df, verbosity_controls, metrics, type="scores"):
     """
     Display KDE plots for multiple metrics (e.g., ROUGE, BERT, similarity) grouped by non-unique verbosity control keys [merge all rows with same key].
     
@@ -95,9 +146,6 @@ def display_metric_scores(path, metrics):
                    - "metrics": A list of dictionaries for grouped subplots (e.g., [{"rouge2": "column"}, {"rougeL": "column"}])
                    - "xlim" (optional): A tuple specifying the x-axis limits (e.g., (-0.3, 1)).
     """
-    df = pd.read_csv(path)
-    verbosity_controls = df['verbosity_control'].unique()
-
     for metric_group, group_info in metrics.items():
         group_metrics = group_info["metrics"]
         xlim = group_info.get("xlim", None)  # Get xlim if provided, otherwise default to None
@@ -117,14 +165,17 @@ def display_metric_scores(path, metrics):
 
             for ax, metric_dict in zip(axes, group_metrics):
                 for metric, column in metric_dict.items():
-                    _plot_metric(df, verbosity_controls, metric, column, ax, xlim)
+                    if type == "scores":
+                        _plot_metric(df, verbosity_controls, metric, column, ax, xlim)
+                    elif type == "top3":
+                        _plot_top3_scores(df, verbosity_controls, metric, column, ax, xlim)
                     ax.set_title(f"{metric.upper()} Scores")
 
             # Add a legend for this figure
             handles, labels = axes[0].get_legend_handles_labels()  # Collect legend from the first subplot
-            fig.legend(handles, labels, loc="upper center", ncol=2, title="Verbosity Control")
+            fig.legend(handles, labels, loc="upper center", ncol=1, title="Verbosity Control")
             plt.tight_layout(rect=[0, 0, 1, 0.9])  # Adjust layout to make space for the legend
-            plt.subplots_adjust(top=0.85 if subplots_per_row == 2 else 0.7) 
+            plt.subplots_adjust(top=0.8 if subplots_per_row == 2 else 0.7) 
             plt.show()
 
         else:  # Single plot for this metric group
@@ -133,8 +184,8 @@ def display_metric_scores(path, metrics):
             ax.set_title(f"{metric_group.upper()} Scores")
 
             # Add a legend for this figure
-            handles, labels = ax.get_legend_handles_labels()  # Collect legend from the single plot
-            fig.legend(handles, labels, loc="upper center", ncol=2, title="Verbosity Control")
+            handles, labels = ax.get_legend_handles_labels()
+            fig.legend(handles, labels, loc="upper center", ncol=1, title="Verbosity Control")
             plt.tight_layout(rect=[0, 0, 1, 0.9])  # Adjust layout to make space for the legend
             plt.subplots_adjust(top=0.7)  # Further adjust the top margin for the legend
             plt.show()
@@ -148,11 +199,9 @@ def _plot_metric(df, verbosity_controls, metric, column, ax, xlim):
     colors = {}
 
     for control in verbosity_controls:
-        subset = df[df['verbosity_control'] == control][column].dropna()
+        subset = df[df['verbosity_control'] == control][f"{column}_scores"].dropna()
 
-        # Convert string representations of lists to actual lists (if applicable)
-        if column.endswith("_f1_scores") or column in ["similarity", "length_ratio"]:
-            subset = subset.apply(eval).explode().astype(float)
+        subset = subset.apply(eval).explode().astype(float) # Convert string representations of lists to actual lists
 
         if len(subset) > 1:  # Only plot if we have enough data
             kde = sns.kdeplot(subset, label=control, fill=False, ax=ax)
@@ -161,33 +210,80 @@ def _plot_metric(df, verbosity_controls, metric, column, ax, xlim):
 
     # Draw vertical lines for the averages with the same colors as the KDE plots
     for control, avg in averages.items():
-        ax.axvline(avg, linestyle="--", color=colors[control], label=f"{control} Avg: {avg:.2f}")
+        ax.axvline(avg, linestyle="--", color=colors[control])
 
     ax.set_xlabel(f"{metric.capitalize()} Score")
     if xlim:  # Apply x-axis limits if provided
         ax.set_xlim(xlim)
     ax.grid()
 
+def _plot_top3_scores(df, verbosity_controls, metric, column, ax, xlim=None):
+    """
+    Helper function to plot the top 3 scores for a given metric.
+    """
+    index_counts = {}
+    colors = sns.color_palette("tab10", n_colors=len(verbosity_controls))  # Assign unique colors for each verbosity control
+
+    for i, control in enumerate(verbosity_controls):
+        subset = df[df['verbosity_control'] == control][f"{column}_top3_index"].dropna()
+
+        # Flatten the list of indices and count occurrences
+        all_indices = subset.apply(eval).explode().astype(int)  # Convert string representations of lists to actual lists
+        index_counts[control] = all_indices.value_counts()  # Count occurrences of each index
+
+    # Plot the counts for each verbosity control
+    bar_width = 0.1  # Width of each bar
+    unique_indices = sorted(set(idx for counts in index_counts.values() for idx in counts.index))  # Get all unique indices
+    x_positions = range(len(unique_indices))  # Positions for the unique indices
+
+    for i, (control, counts) in enumerate(index_counts.items()):
+        heights = [counts.get(idx, -0.1) for idx in unique_indices]  # Get counts for each unique index, default to 0
+        ax.bar(
+            [x + i * bar_width for x in x_positions],  # Offset x positions for each control
+            heights,
+            width=bar_width,
+            color=colors[i],
+            alpha=0.7,
+            label=control
+        )
+
+    # Set x-ticks to show the unique indices
+    ax.set_xticks([x + (len(verbosity_controls) - 1) * bar_width / 2 for x in x_positions])  # Center x-ticks
+    ax.set_xticklabels(unique_indices)  # Set x-tick labels to the unique indices
+
+    # Customize the plot
+    ax.set_title(f"Top 3 {metric.capitalize()} Scores")
+    ax.set_xlabel("Indices of Points")
+    ax.set_ylabel("Count")
+    
+
 if __name__ == "__main__":
     rouges = ["rouge2", "rougeL"]
+    path = "wiki-qa-data/"
+    file = "analysis.csv"
     
-    analyse_data(path, rouges)
+    analyse_data(path, file, rouges)
     print("Analysis completed.")
+
+    df = pd.read_csv(path + file)
+    verbosity_controls = df['verbosity_control'].unique()
+    print("File read successfully. Ready for plotting...")
 
     metrics = {
         "f1": {
             "metrics": [
-                # {"rouge2 f1": "rouge2_f1_scores"},
-                {"rougeL f1": "rougeL_f1_scores"},
-                {"bert f1": "bert_f1_scores"},
+                {"rouge2 f1": "rouge2_f1"},
+                {"rougeL f1": "rougeL_f1"},
+                {"bert f1": "bert_f1"},
                 {"similarity": "similarity"}
             ],
             "xlim": (-0.3, 1)
         },
-        # "length_ratio": {
-        #     "metrics": [{"length_ratio": "length_ratio"}],
-        #     "xlim": (0, 5)
-        # }
+        "length_ratio": {
+            "metrics": [{"length_ratio": "length_ratio"}],
+            "xlim": (0, 5)
+        }
     }
-
-    display_metric_scores(path + "analysis.csv", metrics)
+    display_metric_scores(df, verbosity_controls, metrics, type="scores")
+    save_top_index_counts_to_csv(df, verbosity_controls, ["rouge2_f1", "rougeL_f1", "bert_f1", "similarity"], path+"top_index_counts.csv")
+    display_metric_scores(df, verbosity_controls, metrics, type="top3")
