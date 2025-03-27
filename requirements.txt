@@ -15,6 +15,7 @@ dotenv
 pytest
 pandas
 sentence_transformers
+bert-score
 nltk
 rouge_score
 matplotlib

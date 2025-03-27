@@ -7,6 +7,7 @@ from rouge_score import rouge_scorer
 from nltk.util import ngrams
 from collections import Counter
 import nltk
+import bert_score
 # nltk.download('punkt')
 
 """
@@ -80,6 +81,17 @@ def calculate_redundancy_score(text, n=2):
     total_n_grams = len(n_grams)
     repeated_n_grams = sum(count - 1 for count in n_gram_counts.values() if count > 1)
     return repeated_n_grams / total_n_grams if total_n_grams > 0 else 0
+
+def calculate_BERTScore(generated, ground_truth):
+    """
+    Source: "BERTScore: Evaluating Text Generation with BERT" (Zhang et al., 2024)
+    """
+    P, R, F1 = bert_score.score([generated], [ground_truth], lang='en', verbose=False, rescale_with_baseline=True)
+    return {
+        "precision": P.item(),
+        "recall": R.item(),
+        "f1": F1.item()
+    }
 
 def avoid_rate_limit(llm_choice):
   """
@@ -187,21 +199,23 @@ def calculate_similarity(generated, ground_truth, sentence_transformer=None):
                             "recall": rouge_scores[rouge].recall} \
                             for rouge in rouges}
     
-    # Semantic Similarity
-    if sentence_transformer is None:
-        sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')  # Load model if not provided
-    embeddings = sentence_transformer.encode([ground_truth, generated], convert_to_tensor=True)
-    semantic_similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+    # BERTScore
+    bert_scores = calculate_BERTScore(generated, ground_truth)
+    
+    # # Semantic Similarity
+    # if sentence_transformer is None:
+    #     sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')  # Load model if not provided
+    # embeddings = sentence_transformer.encode([ground_truth, generated], convert_to_tensor=True)
+    # semantic_similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
     
     # Weighted Combination of Metrics
     similarity_score = (
-        (0.4 * semantic_similarity) + # Semantic similarity for meaning
-        (0.3 * rouge_L_f1) +  # ROUGE-L for structural similarity
-        (0.2 * rouge_2_f1) +  # ROUGE-2 for content overlap
+        (0.5 * bert_scores["f1"]) + # Semantic similarity for meaning
+        (0.4 * rouge_L_f1) +  # ROUGE-L for structural similarity
         (0.1 * (1 - length_ratio))  # Inverse length ratio for conciseness
     )
     
-    return max(0, min(1, similarity_score)), rouge_scores, semantic_similarity # Ensure score is between 0 and 1
+    return max(0, min(1, similarity_score)), rouge_scores, bert_scores, length_ratio # Ensure score is between 0 and 1
 
 
 # --------------------
@@ -210,33 +224,39 @@ def analyse_LLM_consistency():
     """
     Analyze the consistency of LLM responses by calculating similarity scores
     """
-    sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+    # sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
 
     for file in os.listdir(path):
         if file.endswith(".tsv") and "-ans" in file:
             file_path = os.path.join(path, file)
             data = pd.read_csv(file_path, sep="\t")
 
+            # Delete existing similarity columns: similarity	rouge_scores	cosine_similarity	bert_scores	length_ratio
+            data.drop(columns=['similarity', 'rouge_scores', 'bert_scores', 'length_ratio', 'cosine_similarity'], inplace=True)
+
             # Add a new column for similarity scores
             similarity_scores = []
             rouge_scores = []
-            cosine_scores = []
+            bert_scores = []
+            length_ratios = []
 
             # Iterate through the rows and calculate similarity
             for i in range(len(data)):
-                similarity, rouge_score, cosine_score = calculate_similarity(data["answer"][i], data["gold_sentence"][i], sentence_transformer)
-                similarity_scores.append(similarity)
+                similarity, rouge_score, bert_score, length_ratio = calculate_similarity(data["answer"][i], data["gold_sentence"][i])
                 rouge_scores.append(rouge_score)
-                cosine_scores.append(cosine_score)
+                bert_scores.append(bert_score)
+                length_ratios.append(length_ratio)
+                similarity_scores.append(similarity)
 
             # Add the similarity scores to the DataFrame
-            data["similarity"] = similarity_scores
+            data["length_ratio"] = length_ratios
             data["rouge_scores"] = rouge_scores
-            data["cosine_similarity"] = cosine_scores
+            data["bert_scores"] = bert_scores
+            data["similarity"] = similarity_scores
 
             # Save the updated DataFrame back to the CSV file
             data.to_csv(file_path, sep="\t", index=False)
-            print(f"Updated file: {file_path} with similarity scores.")
+            print(f"Updated file: {file_path} with similarity scores.\n\n")
 
 if __name__ == "__main__":
     # generate_LLM_responses()
