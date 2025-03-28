@@ -18,6 +18,7 @@ def analyse_data(path, analysis_file, rouges):
           grouped_data['similarity_scores'] = data.groupby('verbosity_control')['similarity'].apply(list).reset_index()['similarity']
           grouped_data['length_ratio_scores'] = data.groupby('verbosity_control')['length_ratio'].apply(list).reset_index()['length_ratio']
           grouped_data['bert_scores'] = data.groupby('verbosity_control')['bert_scores'].apply(list).reset_index()['bert_scores']
+          grouped_data['answer'] = data.groupby('verbosity_control')['answer'].apply(list).reset_index()['answer']
 
           # Extract F1 scores (fmeasure) from the ROUGE SCORE strings
           def extract_f1_scores(scores_list, rougeBool=False, bertBool=False):
@@ -48,7 +49,10 @@ def analyse_data(path, analysis_file, rouges):
             grouped_data[f'{rougeN}_f1_max_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: x.index(max(x)) if x else -1)
             grouped_data[f'{rougeN}_f1_top3'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
             grouped_data[f'{rougeN}_f1_top3_index'] = grouped_data[f'{rougeN}_f1_scores'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
-            grouped_data[f'{rougeN}_f1_top3_answer'] = grouped_data[f'{rougeN}_f1_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
+            grouped_data[f'{rougeN}_f1_top3_answer'] = grouped_data.apply(
+                lambda row: [row['answer'][i] for i in row[f'{rougeN}_f1_top3_index']] if row[f'{rougeN}_f1_top3_index'] != -1 else None,
+                axis=1
+            )
           
           # EXTRACT BERT SCORES F1 SCORES
           bert_f1_scores = grouped_data['bert_scores'].apply(lambda x: extract_f1_scores(x, bertBool=True))
@@ -63,12 +67,17 @@ def analyse_data(path, analysis_file, rouges):
           grouped_data['bert_f1_max_index'] = bert_f1_scores.apply(lambda x: x.index(max(x)) if x else -1)
           grouped_data['bert_f1_top3'] = bert_f1_scores.apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
           grouped_data['bert_f1_top3_index'] = grouped_data['bert_f1_scores'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
-          grouped_data['bert_f1_top3_answer'] = grouped_data['bert_f1_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
-
+          grouped_data['bert_f1_top3_answer'] = grouped_data.apply(
+                lambda row: [row['answer'][i] for i in row['bert_f1_top3_index']] if row['bert_f1_top3_index'] != -1 else None,
+                axis=1
+          )
           # EXTRACT TOP 3 similarity scores
           grouped_data['similarity_top3'] = grouped_data['similarity_scores'].apply(lambda x: (sorted(x, reverse=True)[:3]) if x else 0)
           grouped_data['similarity_top3_index'] = grouped_data['similarity_scores'].apply(lambda x: [x.index(score) for score in sorted(x, reverse=True)[:3]] if x else -1)
-          grouped_data['similarity_top3_answer'] = grouped_data['similarity_top3_index'].apply(lambda x: [data.iloc[i]['answer'] for i in x] if x != -1 else None)
+          grouped_data['similarity_top3_answer'] = grouped_data.apply(
+                lambda row: [row['answer'][i] for i in row['similarity_top3_index']] if row['similarity_top3_index'] != -1 else None,
+                axis=1
+            )
 
           print(f"\nData Analysis for: {origin}")
           grouped_data['origin'] = origin
@@ -89,29 +98,45 @@ def save_top_index_counts_to_csv(df, verbosity_controls, metrics, output_file):
         for control in verbosity_controls:
             column = f"{metric}_top3_index"
             if column in df.columns:
-                subset = df[df['verbosity_control'] == control][column].dropna()
+                indices = df[df['verbosity_control'] == control][column].dropna()
+                answers = df[df['verbosity_control'] == control][f"{metric}_top3_answer"].dropna()
+                
+                all_indices = indices.apply(eval).reset_index(drop=True)
+                all_answers = answers.apply(eval).reset_index(drop=True)
 
-                all_indices = subset.apply(eval).explode().astype(int)  # Convert string representations of lists to actual lists
+                subset = pd.concat([all_indices, all_answers], axis=1)
+
+                all_indices_answers = subset.apply(lambda x: list(zip(x[0], x[1])), axis=1)
+                all_indices_answers = all_indices_answers.apply(lambda x: sorted(x, key=lambda y: y[0], reverse=True))
+                all_indices = all_indices_answers.explode().apply(lambda x: x[0])
                 index_counts = all_indices.value_counts().sort_values(ascending=False)
 
                 top_indices = index_counts.index.tolist()[:3]
+                # Fetch all the answers corresponding to the top indices from all files
+                top_answers = []
+                for index in top_indices:
+                    top_answers.append(all_indices_answers.apply(lambda x: [answer[1] for answer in x if answer[0] == index]).tolist())
                 top_counts = index_counts.tolist()[:3]
 
                 # Pad with "N/A" if there are fewer than 3 indices
                 while len(top_indices) < 3:
                     top_indices.append("N/A")
                     top_counts.append("N/A")
+                    top_answers.append("N/A")
 
                 # Add a row to the CSV data
                 csv_data.append({
                     "Verbosity Control": control,
                     "Metric": metric,
                     "Top1 Index": top_indices[0],
-                    "Top1 Count": top_counts[0],
+                    "Top1 Count (all files)": top_counts[0],
+                    "Top1 Answers from each file": top_answers[0],
                     "Top2 Index": top_indices[1],
-                    "Top2 Count": top_counts[1],
+                    "Top2 Count (all files)": top_counts[1],
+                    "Top2 Answers from each file": top_answers[1],
                     "Top3 Index": top_indices[2],
-                    "Top3 Count": top_counts[2],
+                    "Top3 Count (all files)": top_counts[2],
+                    "Top3 Answers from each file": top_answers[2],
                 })
             else:
                 # If the column doesn't exist, add a row with "N/A"
@@ -119,11 +144,14 @@ def save_top_index_counts_to_csv(df, verbosity_controls, metrics, output_file):
                     "Verbosity Control": control,
                     "Metric": metric,
                     "Top1 Index": "N/A",
-                    "Top1 Count": "N/A",
+                    "Top1 Count (all files)": "N/A",
+                    "Top1 Answers from each file": "N/A",
                     "Top2 Index": "N/A",
-                    "Top2 Count": "N/A",
+                    "Top2 Count (all files)": "N/A",
+                    "Top2 Answers from each file": "N/A",
                     "Top3 Index": "N/A",
-                    "Top3 Count": "N/A",
+                    "Top3 Count (all files)": "N/A",
+                    "Top3 Answers from each file": "N/A",
                 })
 
     # Convert the data to a DataFrame
@@ -259,7 +287,7 @@ def _plot_top3_scores(df, verbosity_controls, metric, column, ax, xlim=None):
 
 if __name__ == "__main__":
     rouges = ["rouge2", "rougeL"]
-    path = "wiki-qa-data/"
+    path = "wiki-qa-data/data/27Mar-1/"
     file = "analysis.csv"
     
     analyse_data(path, file, rouges)
@@ -284,6 +312,9 @@ if __name__ == "__main__":
             "xlim": (0, 5)
         }
     }
-    display_metric_scores(df, verbosity_controls, metrics, type="scores")
+    try:
+        display_metric_scores(df, verbosity_controls, metrics, type="scores")
+    except Exception as e:
+        print(f"Error displaying metric scores: {e}")
     save_top_index_counts_to_csv(df, verbosity_controls, ["rouge2_f1", "rougeL_f1", "bert_f1", "similarity"], path+"top_index_counts.csv")
     display_metric_scores(df, verbosity_controls, metrics, type="top3")
