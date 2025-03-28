@@ -287,7 +287,7 @@ def _plot_top3_scores(df, verbosity_controls, metric, column, ax, xlim=None):
 
 if __name__ == "__main__":
     rouges = ["rouge2", "rougeL"]
-    path = "wiki-qa-data/data/27Mar-1/"
+    path = "wiki-qa-data/data/"
     file = "analysis.csv"
     
     analyse_data(path, file, rouges)
