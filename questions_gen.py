@@ -2,6 +2,7 @@ from llm_factory import OpenAILLMs, GoogleAILLMs, DeepSeekLLMs, OllamaLLMs
 import pandas as pd
 import os
 import time
+import re
 
 """
 
@@ -39,13 +40,22 @@ def generate_question(llm, sentence, url, search=False):
   gen_question = response["output"] if search else response.content.strip()
   return gen_question, response
 
-def avoid_rate_limit(llm_choice):
+def avoid_rate_limit(llm_choice, retry_delay=60):
   """
-  Avoid rate limit by sleeping for 60 seconds.
+  Avoid rate limit by sleeping for retry_delay seconds.
   """
   if llm_choice == "google":
-    print("Sleeping for 60 seconds to avoid Free Tier rate limit...")
-    time.sleep(60)
+    print(f"Sleeping for {retry_delay} seconds to avoid Free Tier rate limit...")
+    time.sleep(retry_delay)
+
+def extract_retry_delay(error_message):
+    """
+    Extract the retry delay in seconds from the error message.
+    """
+    match = re.search(r"retry_delay\s*{\s*seconds:\s*(\d+)", error_message)
+    if match:
+        return int(match.group(1))
+    return 60  # Default retry delay if not found
 
 if __name__ == "__main__":
 
@@ -88,7 +98,8 @@ if __name__ == "__main__":
         gen_question, llm_response = generate_question(llm, sentence, data["url"][i], search=search)
       except Exception as e:
         print(f"Error: {e}")
-        avoid_rate_limit(llm_choice)
+        retry_delay = extract_retry_delay(str(e))
+        avoid_rate_limit(llm_choice, retry_delay=60)
         gen_question, llm_response = generate_question(llm, sentence, data["url"][i], search=search)
 
       print(f"{origin} - Generated Question {i+1}:", gen_question)

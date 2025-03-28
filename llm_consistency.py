@@ -1,6 +1,7 @@
 from llm_factory import OpenAILLMs, GoogleAILLMs, DeepSeekLLMs, OllamaLLMs
 import pandas as pd
 import os
+import re
 import time
 from sentence_transformers import SentenceTransformer, util
 from rouge_score import rouge_scorer
@@ -22,11 +23,17 @@ import bert_score
 """
 
 
-def fetch_data(file_path):
+def fetch_data(file_path, tsv=False, json=False):
   """
   Fetch data from a tsv file.
   """
-  data = pd.read_csv(file_path, sep="\t")
+  if tsv:
+    data = pd.read_csv(file_path, sep="\t")
+  elif json:
+    data = pd.read_json(file_path, lines=True)
+  else:
+    raise ValueError("Invalid file format")
+
   return data
 
 def generate_answer(llm, verbosity_control, question):
@@ -93,55 +100,35 @@ def calculate_BERTScore(generated, ground_truth):
         "f1": F1.item()
     }
 
-def avoid_rate_limit(llm_choice):
+def avoid_rate_limit(llm_choice, retry_delay=60):
   """
-  Avoid rate limit by sleeping for 60 seconds.
+  Avoid rate limit by sleeping for retry_delay seconds.
   """
   if llm_choice == "google":
-    print("Sleeping for 60 seconds to avoid Free Tier rate limit...")
-    time.sleep(60)
+    print(f"Sleeping for {retry_delay} seconds to avoid Free Tier rate limit...")
+    time.sleep(retry_delay)
+
+def extract_retry_delay(error_message):
+    """
+    Extract the retry delay in seconds from the error message.
+    """
+    match = re.search(r"retry_delay\s*{\s*seconds:\s*(\d+)", error_message)
+    if match:
+        return int(match.group(1)) + 10  # Add 10 seconds to avoid rate limit
+    return 60  # Default retry delay if not found
 
 # --------------------
-path = "wiki-qa-data/"
-file_path = path+"concise_lite-{origin}.tsv"
-output_file_path = path+"concise_lite-{origin}-ans.tsv"
-concise_count = os.path.basename(path).count("concise")
 
-def generate_LLM_responses():
+def generate_LLM_responses(path, file_path, output_file_path, llm, llm_model_name, verbosity_controls):
   """
   Generate LLM responses for the questions.
   """
-
-  llm_choice = "google" # or "google", "deepseek", "ollama"
-  if llm_choice == "openai":
-    llm = OpenAILLMs().get_llm()
-    llm_model_name = OpenAILLMs().get_model_name()
-  elif llm_choice == "google":
-    llm = GoogleAILLMs().get_llm()
-    llm_model_name = GoogleAILLMs().get_model_name()
-  elif llm_choice == "deepseek":
-    llm = DeepSeekLLMs().get_llm()
-    llm_model_name = DeepSeekLLMs().get_model_name()
-  elif llm_choice == "ollama":
-    llm = OllamaLLMs().get_llm()
-    llm_model_name = OllamaLLMs().get_model_name()
-  else:
-    raise ValueError("Invalid LLM choice")
-  
-  verbosity_controls = [
-    "Answer the following question.",
-    "Directly answer the following question.",
-    "Directly answer the following question. Avoid any additional context or explanations.",
-    "Directly answer the following question, making sure to avoid any additional context or explanations.",
-    "Answer the following question. Keep your answer short.",
-    "Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details."
-  ]
 
   # for all files in the path directory
   for file in os.listdir(path):
     if file.endswith(".tsv") and "-ans" not in file:
       origin = file.split('.')[0].split("-")[1]
-      data = fetch_data(file_path.format(origin=origin))
+      data = fetch_data(file_path.format(origin=origin), tsv=True)
 
       if not os.path.exists(output_file_path.format(origin=origin)) or os.stat(output_file_path.format(origin=origin)).st_size == 0:
         with open(output_file_path.format(origin=origin), "a") as f:
@@ -158,7 +145,8 @@ def generate_LLM_responses():
             gen_answer, llm_response = generate_answer(llm, verbosity_control, question)
           except Exception as e:
             print(f"Error: {e}")
-            avoid_rate_limit(llm_choice)
+            retry_delay = extract_retry_delay(str(e))
+            avoid_rate_limit(llm_choice, retry_delay=60)
             gen_answer, llm_response = generate_answer(llm, verbosity_control, question)
 
           print(f"{origin}-{loop_count+1} - Generated Answer {i+1} with Verbosity Control {i_v+1}: {verbosity_control}")
@@ -170,18 +158,55 @@ def generate_LLM_responses():
       print(f"Finished generating questions for the original sentences: {len(data)} with verbosity control: {verbosity_control}")
       print("\n")
 
+def generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=10):
+  """
+  Generate LLM responses for the questions in CLAPNQ dataset.
+  """
+  data = fetch_data(file_path, json=True)
+  seed = 1234
+  data = data.sample(frac=1, random_state=seed).reset_index(drop=True)  # Shuffle 
+
+  data = data.head(data_limit)
+
+  if not os.path.exists(output_file_path) or os.stat(output_file_path).st_size == 0:
+      with open(output_file_path, "a") as f:
+        f.write("question\tgold_sentence\tanswer\tverbosity_control\tllm_model_question\tllm_model_answer\tcontext\n")
+
+  for di, datapoint in data.iterrows():
+      question = datapoint["input"].replace("\n", " ")
+      context = str(datapoint["passages"]).replace("\n", " ")
+      ground_truth = datapoint["output"][0]["answer"].replace("\n", " ").replace("\t", " ").replace("\r", " ") # only get the first human annotated answer
+      for (i_v, verbosity_control) in enumerate(verbosity_controls):
+          loop_count = di * len(verbosity_controls) + i_v
+
+          # Concatenate Context
+          verbosity_control_prompt = f"Context:{context}\n\n{verbosity_control}"
+
+          try:
+            gen_answer, llm_response = generate_answer(llm, verbosity_control_prompt, question)
+          except Exception as e:
+            print(f"Error: {e}")
+            retry_delay = extract_retry_delay(str(e))
+            avoid_rate_limit(llm_choice, retry_delay=60)
+            gen_answer, llm_response = generate_answer(llm, verbosity_control_prompt, question)
+
+          print(f"clapnq-{loop_count+1} - Generated Answer {di+1} with Verbosity Control {i_v+1}: {verbosity_control}")
+
+          with open(output_file_path, "a") as f:
+            f.write(f"{question}\t{ground_truth}\t{gen_answer}\t{verbosity_control}\thuman\t{llm_model_name}\t{context}\n")
+
 # --------------------
 
-    """
-    Calculate similarity between the original sentence and the generated answer.
+"""
+Calculate similarity between the original sentence and the generated answer.
 
-    NOTE: develop a metric based on this:
-    - if llm response is shorter than ground truth and is contained in the ground truth, then great
-    - if llm response is around the same length as ground truth and is contained in the ground truth, then good
-    - if llm response is longer than ground truth and contains the ground truth, then good but verbose
-    - if llm response does not contain the ground truth regardless of length, then bad
-    also look at redundancy in the answers
-    """
+NOTE: develop a metric based on this:
+- if llm response is shorter than ground truth and is contained in the ground truth, then great
+- if llm response is around the same length as ground truth and is contained in the ground truth, then good
+- if llm response is longer than ground truth and contains the ground truth, then good but verbose
+- if llm response does not contain the ground truth regardless of length, then bad
+also look at redundancy in the answers
+"""
 def calculate_similarity(generated, ground_truth, sentence_transformer=None):
     """
     Calculate similarity between the original sentence and the generated answer.
@@ -221,7 +246,7 @@ def calculate_similarity(generated, ground_truth, sentence_transformer=None):
 
 # --------------------
 
-def analyse_LLM_consistency():
+def analyse_LLM_consistency(path):
     """
     Analyze the consistency of LLM responses by calculating similarity scores
     """
@@ -261,7 +286,46 @@ def analyse_LLM_consistency():
             print(f"Updated file: {file_path} with similarity scores.\n\n")
 
 if __name__ == "__main__":
-    generate_LLM_responses()
+    llm_choice = "google" # or "google", "deepseek", "ollama"
+    if llm_choice == "openai":
+      llm = OpenAILLMs().get_llm()
+      llm_model_name = OpenAILLMs().get_model_name()
+    elif llm_choice == "google":
+      llm = GoogleAILLMs().get_llm()
+      llm_model_name = GoogleAILLMs().get_model_name()
+    elif llm_choice == "deepseek":
+      llm = DeepSeekLLMs().get_llm()
+      llm_model_name = DeepSeekLLMs().get_model_name()
+    elif llm_choice == "ollama":
+      llm = OllamaLLMs().get_llm()
+      llm_model_name = OllamaLLMs().get_model_name()
+    else:
+      raise ValueError("Invalid LLM choice")
+    
+    verbosity_controls = [
+      "Answer the following question.",
+      "Directly answer the following question.",
+      "Directly answer the following question. Avoid any additional context or explanations.",
+      "Directly answer the following question, making sure to avoid any additional context or explanations.",
+      "Answer the following question. Keep your answer short.",
+      "Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",
+      "You are a highly skilled and concise AI. Directly answer the following question. ",
+    ]
+
+    # CONCISENESS DATASET
+    path = "wiki-qa-data/"
+    output_path = "wiki-qa-data/"
+    file_path = path+"concise_lite-{origin}.tsv"
+    output_file_path = path+"concise_lite-{origin}-ans.tsv"
+    generate_LLM_responses(path, file_path, output_file_path, llm, llm_model_name, verbosity_controls)
+
+    # CLAPNQ DATASET
+    # path = "clapnq-data/"
+    # output_path = "wiki-qa-data/"
+    # file_path = path+"clapnq_dev_answerable.jsonl"
+    # output_file_path = output_path+"clapnq_dev_answerable-ans.tsv"
+    # generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=50)
+
     print("LLM responses generated.")
-    analyse_LLM_consistency()
+    analyse_LLM_consistency(output_path)
     print("Analysis completed.")
