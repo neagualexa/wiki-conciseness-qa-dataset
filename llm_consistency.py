@@ -163,7 +163,7 @@ def generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_na
   Generate LLM responses for the questions in CLAPNQ dataset.
   """
   data = fetch_data(file_path, json=True)
-  seed = 1234
+  seed = 4321
   data = data.sample(frac=1, random_state=seed).reset_index(drop=True)  # Shuffle 
 
   data = data.head(data_limit)
@@ -305,11 +305,10 @@ if __name__ == "__main__":
     verbosity_controls = [
       "Answer the following question.",
       "Directly answer the following question.",
-      "Directly answer the following question. Avoid any additional context or explanations.",
-      "Directly answer the following question, making sure to avoid any additional context or explanations.",
-      "Answer the following question. Keep your answer short.",
-      "Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",
       "You are a highly skilled and concise AI. Directly answer the following question. ",
+      " ",
+      "You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",
+      "You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building."
     ]
 
     # CONCISENESS DATASET
@@ -324,7 +323,7 @@ if __name__ == "__main__":
     # output_path = "wiki-qa-data/"
     # file_path = path+"clapnq_dev_answerable.jsonl"
     # output_file_path = output_path+"clapnq_dev_answerable-ans.tsv"
-    # generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=50)
+    # generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=20)
 
     print("LLM responses generated.")
     analyse_LLM_consistency(output_path)
