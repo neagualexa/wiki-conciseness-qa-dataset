@@ -1,0 +1,33 @@
+Overall,Metric,Verbosity Control,Best Score,Best Origin
+False,rouge2_f1,Answer the following question.,0.3044316861710776,ans50
+False,rouge2_f1,Answer the following question. Keep your answer short.,0.2262005194294525,ans
+False,rouge2_f1,"Directly answer the following question, making sure to avoid any additional context or explanations.",0.19347426464816,ans50
+False,rouge2_f1,Directly answer the following question.,0.3119480428034109,ans50
+False,rouge2_f1,Directly answer the following question. Avoid any additional context or explanations.,0.2114439662185476,ans50
+False,rouge2_f1,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.135161738036288,ans50
+False,rouge2_f1,You are a highly skilled and concise AI. Directly answer the following question. ,0.2876414300367328,ans50
+True,rouge2_f1,Directly answer the following question.,0.3119480428034109,ans50
+False,rougeL_f1,Answer the following question.,0.3887793860891763,ans50
+False,rougeL_f1,Answer the following question. Keep your answer short.,0.3044706017332047,ans50
+False,rougeL_f1,"Directly answer the following question, making sure to avoid any additional context or explanations.",0.2568213289480636,ans50
+False,rougeL_f1,Directly answer the following question.,0.4030808424788227,ans50
+False,rougeL_f1,Directly answer the following question. Avoid any additional context or explanations.,0.2783443712977764,ans50
+False,rougeL_f1,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.2037160788325735,ans50
+False,rougeL_f1,You are a highly skilled and concise AI. Directly answer the following question. ,0.3798213364377976,ans50
+True,rougeL_f1,Directly answer the following question.,0.4030808424788227,ans50
+False,bert_f1,Answer the following question.,0.3196523614227772,ans50
+False,bert_f1,Answer the following question. Keep your answer short.,0.2660546004807111,ans50
+False,bert_f1,"Directly answer the following question, making sure to avoid any additional context or explanations.",0.1599135339818894,ans50
+False,bert_f1,Directly answer the following question.,0.3443560899700969,ans50
+False,bert_f1,Directly answer the following question. Avoid any additional context or explanations.,0.1914524073898792,ans50
+False,bert_f1,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.1299716610461473,ans50
+False,bert_f1,You are a highly skilled and concise AI. Directly answer the following question. ,0.3228404810314532,ans50
+True,bert_f1,Directly answer the following question.,0.3443560899700969,ans50
+False,similarity,Answer the following question.,0.3605705069614664,ans50
+False,similarity,Answer the following question. Keep your answer short.,0.3238612103377849,ans50
+False,similarity,"Directly answer the following question, making sure to avoid any additional context or explanations.",0.2668740192304523,ans50
+False,similarity,Directly answer the following question.,0.3848599652520943,ans50
+False,similarity,Directly answer the following question. Avoid any additional context or explanations.,0.2870360487171214,ans50
+False,similarity,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.232006201879042,ans50
+False,similarity,You are a highly skilled and concise AI. Directly answer the following question. ,0.3638690754983295,ans50
+True,similarity,Directly answer the following question.,0.3848599652520943,ans50

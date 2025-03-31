@@ -1,0 +1,33 @@
+Overall,Metric,Verbosity Control,Best Score,Best Origin
+False,rouge2_f1, ,0.3484900518078676,ans
+False,rouge2_f1,Answer the following question.,0.3258534597951056,ans
+False,rouge2_f1,Answer the following question. Keep your answer short.,0.234799127029209,ans
+False,rouge2_f1,Directly answer the following question.,0.3424389968563376,ans
+False,rouge2_f1,You are a highly skilled and concise AI. Directly answer the following question. ,0.2980917287270375,ans
+False,rouge2_f1,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.101752198224366,ans
+False,rouge2_f1,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.1234149470463727,ans
+True,rouge2_f1, ,0.3484900518078676,ans
+False,rougeL_f1, ,0.4094137197878313,ans
+False,rougeL_f1,Answer the following question.,0.4024192357337928,ans
+False,rougeL_f1,Answer the following question. Keep your answer short.,0.3119427400996042,ans
+False,rougeL_f1,Directly answer the following question.,0.4333913044034392,ans
+False,rougeL_f1,You are a highly skilled and concise AI. Directly answer the following question. ,0.3777971397944734,ans
+False,rougeL_f1,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.1976879481539366,ans
+False,rougeL_f1,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.2360412394942209,ans
+True,rougeL_f1,Directly answer the following question.,0.4333913044034392,ans
+False,bert_f1, ,0.3832736112177372,ans
+False,bert_f1,Answer the following question.,0.4082018107175827,ans
+False,bert_f1,Answer the following question. Keep your answer short.,0.3152357075450709,ans
+False,bert_f1,Directly answer the following question.,0.4282001958927139,ans
+False,bert_f1,You are a highly skilled and concise AI. Directly answer the following question. ,0.3920305313629796,ans
+False,bert_f1,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.0962651709327474,ans
+False,bert_f1,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.1056063587777316,ans
+True,bert_f1,Directly answer the following question.,0.4282001958927139,ans
+False,similarity, ,0.379938528347054,ans
+False,similarity,Answer the following question.,0.3983115259207112,ans
+False,similarity,Answer the following question. Keep your answer short.,0.349673961034479,ans
+False,similarity,Directly answer the following question.,0.4318249069229914,ans
+False,similarity,You are a highly skilled and concise AI. Directly answer the following question. ,0.3901026392092933,ans
+False,similarity,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.1015984569894845,ans
+False,similarity,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",0.1044870326090171,ans
+True,similarity,Directly answer the following question.,0.4318249069229914,ans
