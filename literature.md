@@ -9,4 +9,8 @@ by Large Language Models](https://arxiv.org/pdf/2310.10076)
 
 # LFQA Datasets
 
+[The wiki-conciseness dataset](https://github.com/google-research-datasets/wiki-conciseness-dataset)
+
 [CLAP NQ: Cohesive Long-form Answers from Passages in Natural Questions](https://github.com/primeqa/clapnq)
+
+[MathDial: A Dialogue Tutoring Dataset with Rich Pedagogical Properties Grounded in Math Reasoning Problems](https://github.com/eth-nlped/mathdial)

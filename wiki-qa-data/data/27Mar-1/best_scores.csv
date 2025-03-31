@@ -1,0 +1,33 @@
+Overall,Metric,Verbosity Control,Best Score,Best Origin
+False,rouge2_f1,Answer the following question with a concise answer.,0.164519485148346,sentence
+False,rouge2_f1,Answer the following question without unnecessary details.,0.1576693910055167,sentence
+False,rouge2_f1,Answer the following question.,0.1555056105034573,concise_1
+False,rouge2_f1,Answer the following question. Keep your answer short.,0.1701704307401153,sentence
+False,rouge2_f1,Directly answer the following question.,0.2307815157101196,concise_1
+False,rouge2_f1,Provide a direct and concise answer to the following question without adding extra context or explanation.,0.1346379142956092,sentence
+False,rouge2_f1,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.1427637068294345,sentence
+True,rouge2_f1,Directly answer the following question.,0.2307815157101196,concise_1
+False,rougeL_f1,Answer the following question with a concise answer.,0.3130518973733831,sentence
+False,rougeL_f1,Answer the following question without unnecessary details.,0.2970264897898759,sentence
+False,rougeL_f1,Answer the following question.,0.2595045916848611,sentence
+False,rougeL_f1,Answer the following question. Keep your answer short.,0.327922029184825,sentence
+False,rougeL_f1,Directly answer the following question.,0.369904535788376,sentence
+False,rougeL_f1,Provide a direct and concise answer to the following question without adding extra context or explanation.,0.2527882379670891,sentence
+False,rougeL_f1,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.2510158439446269,sentence
+True,rougeL_f1,Directly answer the following question.,0.369904535788376,sentence
+False,bert_f1,Answer the following question with a concise answer.,0.3431727275252342,sentence
+False,bert_f1,Answer the following question without unnecessary details.,0.3021372485905885,sentence
+False,bert_f1,Answer the following question.,0.1768956860527396,sentence
+False,bert_f1,Answer the following question. Keep your answer short.,0.3467697482556104,sentence
+False,bert_f1,Directly answer the following question.,0.3640753243118524,sentence
+False,bert_f1,Provide a direct and concise answer to the following question without adding extra context or explanation.,0.3094289464876055,sentence
+False,bert_f1,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.2931403946131468,sentence
+True,bert_f1,Directly answer the following question.,0.3640753243118524,sentence
+False,similarity,Answer the following question with a concise answer.,0.3336709321865236,sentence
+False,similarity,Answer the following question without unnecessary details.,0.317807551859894,sentence
+False,similarity,Answer the following question.,0.1373403060675088,sentence
+False,similarity,Answer the following question. Keep your answer short.,0.3443311167165309,sentence
+False,similarity,Directly answer the following question.,0.3384838312304187,sentence
+False,similarity,Provide a direct and concise answer to the following question without adding extra context or explanation.,0.3099247459447058,sentence
+False,similarity,"Provide a direct and concise answer to the following question. Avoid any additional context, explanations, or unnecessary details.",0.3078557323673778,sentence
+True,similarity,Answer the following question. Keep your answer short.,0.3443311167165309,sentence
