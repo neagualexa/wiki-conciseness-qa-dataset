@@ -195,6 +195,55 @@ def generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_na
           with open(output_file_path, "a") as f:
             f.write(f"{question}\t{ground_truth}\t{gen_answer}\t{verbosity_control}\thuman\t{llm_model_name}\t{context}\n")
 
+def generate_LLM_responses_mathdial(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=10):
+  """
+  Generate LLM responses for the questions in CLAPNQ dataset.
+  """
+  data = fetch_data(file_path, json=True)
+  seed = 12
+  
+  data["conversation_list"] = [c.split('|EOM|') for c in data["conversation"].tolist()]
+  data = data[(data["conversation_list"].str.len() > 3) & \
+              (data["conversation_list"].str[2].str.contains("Teacher:")) & (data["conversation_list"].str[1].str.contains("Student:"))]
+
+  data = data.sample(frac=1, random_state=seed).reset_index(drop=True)  # Shuffle 
+
+  data = data.head(data_limit)
+
+  if not os.path.exists(output_file_path) or os.stat(output_file_path).st_size == 0:
+      with open(output_file_path, "a") as f:
+        f.write("question\tgold_sentence\tanswer\tverbosity_control\tllm_model_question\tllm_model_answer\tcontext\n")
+
+  for di, datapoint in data.iterrows():
+      question = "Help me find what I am wrong on."
+      context = "Exercise Question: " + datapoint["question"] + \
+                "\n\nSolution: " + datapoint["ground_truth"] + \
+                "\n\nStudent's Submission on the exercise: " + datapoint["student_incorrect_solution"] + \
+                "\n\nConversation until now: " + " ".join(datapoint["conversation"].split('|EOM|')[:2])
+                # "\n\nStudent's confusion: " + datapoint["teacher_described_confusion"] + \
+      ground_truth = datapoint["conversation"].split('|EOM|')[2].replace("\n", " ").replace("\t", " ").replace("\r", " ")\
+                      .split('Teacher: ')[1]
+      # dataset has a whole groundtruth conversation, only look at the first teacher response
+      for (i_v, verbosity_control) in enumerate(verbosity_controls):
+          loop_count = di * len(verbosity_controls) + i_v
+
+          # Concatenate Context
+          verbosity_control_prompt = f"{context}\n\n{verbosity_control}"
+
+          try:
+            gen_answer, llm_response = generate_answer(llm, verbosity_control_prompt, question)
+          except Exception as e:
+            print(f"Error: {e}")
+            retry_delay = extract_retry_delay(str(e))
+            avoid_rate_limit(llm_choice, retry_delay=60)
+            gen_answer, llm_response = generate_answer(llm, verbosity_control_prompt, question)
+
+          print(f"mathdial-{loop_count+1} - Generated Answer {di+1} (length {len(gen_answer)}) with Verbosity Control {i_v+1}: {verbosity_control}")
+
+          with open(output_file_path, "a") as f:
+            sanitized_context = re.sub(r"[\n\t\r]", " ", context)
+            f.write(f"{question}\t{ground_truth}\t{gen_answer}\t{verbosity_control}\thuman\t{llm_model_name}\t{sanitized_context}\n")
+
 # --------------------
 
 """
@@ -303,20 +352,20 @@ if __name__ == "__main__":
       raise ValueError("Invalid LLM choice")
     
     verbosity_controls = [
-      "Answer the following question.",
-      "Directly answer the following question.",
-      "You are a highly skilled and concise AI. Directly answer the following question. ",
       " ",
+      "Directly answer the student's question.",
+      "Assist the student.",
+      "Answer the student's question. Keep your answer short.",
       "You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",
       "You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building."
     ]
 
     # CONCISENESS DATASET
-    path = "wiki-qa-data/"
-    output_path = "wiki-qa-data/"
-    file_path = path+"concise_lite-{origin}.tsv"
-    output_file_path = path+"concise_lite-{origin}-ans.tsv"
-    generate_LLM_responses(path, file_path, output_file_path, llm, llm_model_name, verbosity_controls)
+    # path = "wiki-qa-data/"
+    # output_path = "wiki-qa-data/"
+    # file_path = path+"concise_lite-{origin}.tsv"
+    # output_file_path = path+"concise_lite-{origin}-ans.tsv"
+    # generate_LLM_responses(path, file_path, output_file_path, llm, llm_model_name, verbosity_controls)
 
     # CLAPNQ DATASET
     # path = "clapnq-data/"
@@ -324,6 +373,13 @@ if __name__ == "__main__":
     # file_path = path+"clapnq_dev_answerable.jsonl"
     # output_file_path = output_path+"clapnq_dev_answerable-ans.tsv"
     # generate_LLM_responses_clapnq(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=20)
+
+    # MATHDIAL DATASET
+    path = "mathdial-data/"
+    output_path = "wiki-qa-data/"
+    file_path = path+"train.jsonl"
+    output_file_path = output_path+"mathdial-train-ans.tsv"
+    generate_LLM_responses_mathdial(file_path, output_file_path, llm, llm_model_name, verbosity_controls, data_limit=30)
 
     print("LLM responses generated.")
     analyse_LLM_consistency(output_path)

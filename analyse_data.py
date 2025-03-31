@@ -80,6 +80,12 @@ def analyse_data(path, analysis_file, rouges):
         )
         grouped_data['similarity_avg'] = grouped_data['similarity_scores'].apply(lambda x: sum(x) / len(x) if x else 0)
 
+        # Average Answer lengths
+        grouped_data['answer_length_avg'] = grouped_data['answer'].apply(lambda x: sum(len(ans) for ans in x) / len(x) if x else 0)
+        grouped_data['answer_length_std'] = grouped_data['answer'].apply(
+            lambda x: (sum((len(ans) - (sum(len(ans) for ans in x) / len(x)))**2 for ans in x) / len(x))**0.5 if x else 0
+        )
+
         print(f"\nData Analysis for: {origin}")
         grouped_data['origin'] = origin
         grouped_data.pop('rouge_scores')
@@ -99,17 +105,23 @@ def find_best_scores_origin(df, path, metric, verbosity_controls):
     for control in verbosity_controls:
         best_score = -1
         best_origin = None
+        avg_answer_length = None
+        std_answer_length = None
         for _, row in df[df['verbosity_control'] == control].iterrows():
             if row[f"{metric}_avg"] > best_score:
                 print(f"{metric} - New best score found: {row[f'{metric}_avg']} from origin: {row['origin']} - control: {control}")
                 best_score = row[f"{metric}_avg"]
                 best_origin = row['origin']
+                avg_answer_length = row['answer_length_avg']
+                std_answer_length = row['answer_length_std']
 
         print(f"Best {metric} AVG score: {best_score} from origin: {best_origin} - control: {control}")
         results.append({
             "Overall": False,
             "Metric": metric,
             "Verbosity Control": control,
+            "Avg Answer Length": avg_answer_length,
+            "Std Answer Length": std_answer_length,
             "Best Score": best_score,
             "Best Origin": best_origin
         })
@@ -118,16 +130,22 @@ def find_best_scores_origin(df, path, metric, verbosity_controls):
     best_score = -1
     best_origin = None
     best_control = None
+    avg_answer_length = None
+    std_answer_length = None
     for _, row in df.iterrows():
         if row[f"{metric}_avg"] > best_score:
             best_score = row[f"{metric}_avg"]
             best_origin = row['origin']
             best_control = row['verbosity_control']
+            avg_answer_length = row['answer_length_avg']
+            std_answer_length = row['answer_length_std']
     print(f"----- Overall best {metric} AVG score: {best_score} from origin: {best_origin} - control: {best_control}")
     results.append({
         "Overall": True,
         "Metric": metric,
         "Verbosity Control": best_control,
+        "Avg Answer Length": avg_answer_length,
+        "Std Answer Length": std_answer_length,
         "Best Score": best_score,
         "Best Origin": best_origin
     })

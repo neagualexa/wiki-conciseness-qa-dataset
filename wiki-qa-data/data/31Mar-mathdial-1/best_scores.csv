@@ -1,0 +1,29 @@
+Overall,Metric,Verbosity Control,Avg Answer Length,Std Answer Length,Best Score,Best Origin
+False,rouge2_f1, ,1371.5333333333333,478.53071885605095,0.0245634642900153,train
+False,rouge2_f1,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.0442378240617383,train
+False,rouge2_f1,Assist the student.,1242.2666666666669,490.13650706263,0.032990172744486,train
+False,rouge2_f1,Directly answer the student's question.,520.7666666666667,251.87479473385625,0.043864311749311,train
+False,rouge2_f1,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",1047.1333333333334,410.58720010356984,0.0365826021137813,train
+False,rouge2_f1,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",945.0,436.8563455721648,0.0405872375582287,train
+True,rouge2_f1,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.0442378240617383,train
+False,rougeL_f1, ,1371.5333333333333,478.53071885605095,0.0656364940248071,train
+False,rougeL_f1,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.1512098715635385,train
+False,rougeL_f1,Assist the student.,1242.2666666666669,490.13650706263,0.0767607075720754,train
+False,rougeL_f1,Directly answer the student's question.,520.7666666666667,251.87479473385625,0.114625092484288,train
+False,rougeL_f1,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",1047.1333333333334,410.58720010356984,0.0809867931079972,train
+False,rougeL_f1,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",945.0,436.8563455721648,0.092927008248722,train
+True,rougeL_f1,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.1512098715635385,train
+False,bert_f1, ,1371.5333333333333,478.53071885605095,-0.1626929006694505,train
+False,bert_f1,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.1053774677769979,train
+False,bert_f1,Assist the student.,1242.2666666666669,490.13650706263,-0.1513075590211277,train
+False,bert_f1,Directly answer the student's question.,520.7666666666667,251.87479473385625,0.0121328203162799,train
+False,bert_f1,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",1047.1333333333334,410.58720010356984,-0.0802392576368826,train
+False,bert_f1,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",945.0,436.8563455721648,-0.0557984833295146,train
+True,bert_f1,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.1053774677769979,train
+False,similarity, ,1371.5333333333333,478.53071885605095,0.0017022559509346,train
+False,similarity,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.0714825401386702,train
+False,similarity,Assist the student.,1242.2666666666669,490.13650706263,0.0004184895299729,train
+False,similarity,Directly answer the student's question.,520.7666666666667,251.87479473385625,0.0098117273037218,train
+False,similarity,"You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",1047.1333333333334,410.58720010356984,0.0,train
+False,similarity,"You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",945.0,436.8563455721648,0.0006341008792512,train
+True,similarity,Answer the student's question. Keep your answer short.,188.6,72.65746119062149,0.0714825401386702,train
