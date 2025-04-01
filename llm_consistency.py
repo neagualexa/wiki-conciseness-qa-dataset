@@ -9,6 +9,7 @@ from nltk.util import ngrams
 from collections import Counter
 import nltk
 import bert_score
+import verbosity_control_prompts
 # nltk.download('punkt')
 
 """
@@ -228,7 +229,7 @@ def generate_LLM_responses_mathdial(file_path, output_file_path, llm, llm_model_
           loop_count = di * len(verbosity_controls) + i_v
 
           # Concatenate Context
-          verbosity_control_prompt = f"{context}\n\n{verbosity_control}"
+          verbosity_control_prompt = f"{verbosity_control}\n\n{context}"
 
           try:
             gen_answer, llm_response = generate_answer(llm, verbosity_control_prompt, question)
@@ -238,11 +239,12 @@ def generate_LLM_responses_mathdial(file_path, output_file_path, llm, llm_model_
             avoid_rate_limit(llm_choice, retry_delay=60)
             gen_answer, llm_response = generate_answer(llm, verbosity_control_prompt, question)
 
-          print(f"mathdial-{loop_count+1} - Generated Answer {di+1} (length {len(gen_answer)}) with Verbosity Control {i_v+1}: {verbosity_control}")
+          print(f"mathdial-{loop_count+1} - Generated Answer {di+1} (length {len(gen_answer)}) with Verbosity Control {i_v+1}")
 
           with open(output_file_path, "a") as f:
             sanitized_context = re.sub(r"[\n\t\r]", " ", context)
-            f.write(f"{question}\t{ground_truth}\t{gen_answer}\t{verbosity_control}\thuman\t{llm_model_name}\t{sanitized_context}\n")
+            sanitized_verbosity_control = re.sub(r"[\n\t\r]", " ", verbosity_control)
+            f.write(f"{question}\t{ground_truth}\t{gen_answer}\t{sanitized_verbosity_control}\thuman\t{llm_model_name}\t{sanitized_context}\n")
 
 # --------------------
 
@@ -351,14 +353,13 @@ if __name__ == "__main__":
     else:
       raise ValueError("Invalid LLM choice")
     
-    verbosity_controls = [
-      " ",
-      "Directly answer the student's question.",
-      "Assist the student.",
-      "Answer the student's question. Keep your answer short.",
-      "You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building.",
-      "You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building."
-    ]
+    # verbosity_controls = [
+    #   "Directly answer the student's question. Keep your answer short.",
+    #   "Answer the student's question. Keep your answer short.",
+    #   "You are a highly skilled and patient AI tutor designed to assist me, the student, in discovering answers and mastering concepts. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building. Keep your answer short.",
+    #   "You are a highly skilled and patient AI tutor. Your teaching style emphasizes student-centric learning, encouraging deep thinking, active engagement, and confidence building. Keep your answer short."
+    # ]
+    verbosity_controls = verbosity_control_prompts.verbosity_controls
 
     # CONCISENESS DATASET
     # path = "wiki-qa-data/"

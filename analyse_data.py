@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import textwrap
 
+def truncate_verbosity_control(control, max_length=120):
+    """
+    Truncate verbosity control strings to show the first and last `max_length` characters.
+    """
+    if len(control) > 2 * max_length:
+        return f"{control[:10]}(...){control[-max_length:]}"
+    return control
+
 def analyse_data(path, analysis_file, rouges):
   for file in os.listdir(path):
     if file.endswith(".tsv") and "-ans" in file:
@@ -250,32 +258,44 @@ def plot_best_scores(df):
         print("No data to plot after filtering. Ensure the 'Overall' column is properly set.")
         return
 
+    # Truncate and wrap verbosity controls
+    df["Truncated Verbosity Control"] = df["Verbosity Control"].apply(
+        lambda x: "\n".join(textwrap.wrap(truncate_verbosity_control(x), width=40))
+    )
+
+    # Generate a consistent color palette for the truncated verbosity controls
+    unique_controls = df["Truncated Verbosity Control"].unique()
+    color_palette = sns.color_palette("viridis", len(unique_controls))
+    control_colors = {control: color for control, color in zip(unique_controls, color_palette)}
+
     metrics = df["Metric"].unique()
-    num_metrics = int(len(metrics)/2)
+    num_metrics = int(len(metrics) / 2)
     fig, axes = plt.subplots(num_metrics, 2, figsize=(10, 6 * num_metrics), sharex=True)
     axes = axes.flatten()
 
     for ax, metric in zip(axes, metrics):
         metric_df = df[df["Metric"] == metric].sort_values(by="Best Score", ascending=False)
-        metric_df["Verbosity Control"] = metric_df["Verbosity Control"].apply(
-            lambda x: "\n".join(textwrap.wrap(x, width=45))
-        )
 
         sns.barplot(
             data=metric_df,
             x="Best Score",
-            y="Verbosity Control",
-            hue="Verbosity Control",
-            palette="viridis",
+            y="Truncated Verbosity Control",
+            hue="Truncated Verbosity Control",
+            palette=control_colors,
             orient="h",
             ax=ax,
+            dodge=False,  # Ensure no separation for hue
             legend=False,
+            gap=0.3
         )
         ax.set_title(f"Best Scores for {metric}", fontsize=16)
         ax.set_xlabel("Best Score", fontsize=10)
 
     plt.tight_layout()
     plt.show()
+
+    # Save the figure
+    fig.savefig("best_scores_plot.png", bbox_inches="tight")
 
 def display_metric_scores(df, verbosity_controls, metrics, type="scores"):
     """
@@ -315,7 +335,8 @@ def display_metric_scores(df, verbosity_controls, metrics, type="scores"):
 
             # Add a legend for this figure
             handles, labels = axes[0].get_legend_handles_labels()  # Collect legend from the first subplot
-            fig.legend(handles, labels, loc="upper center", ncol=1, title="Verbosity Control")
+            truncated_labels = [truncate_verbosity_control(label) for label in labels]
+            fig.legend(handles, truncated_labels, loc="upper center", ncol=1, title="Verbosity Control")
             plt.tight_layout(rect=[0, 0, 1, 0.9])  # Adjust layout to make space for the legend
             plt.subplots_adjust(top=0.8 if subplots_per_row == 2 else 0.7) 
             plt.show()
@@ -327,7 +348,8 @@ def display_metric_scores(df, verbosity_controls, metrics, type="scores"):
 
             # Add a legend for this figure
             handles, labels = ax.get_legend_handles_labels()
-            fig.legend(handles, labels, loc="upper center", ncol=1, title="Verbosity Control")
+            truncated_labels = [truncate_verbosity_control(label) for label in labels]
+            fig.legend(handles, truncated_labels, loc="upper center", ncol=1, title="Verbosity Control")
             plt.tight_layout(rect=[0, 0, 1, 0.9])  # Adjust layout to make space for the legend
             plt.subplots_adjust(top=0.7)  # Further adjust the top margin for the legend
             plt.show()
@@ -341,13 +363,13 @@ def _plot_metric(df, verbosity_controls, metric, column, ax, xlim=(0, 1)):
     colors = {}
 
     for control in verbosity_controls:
+        truncated_control = truncate_verbosity_control(control)
         subset = df[df['verbosity_control'] == control][f"{column}_scores"].dropna()
+        subset = subset.apply(eval).explode().astype(float)
 
-        subset = subset.apply(eval).explode().astype(float) # Convert string representations of lists to actual lists
-
-        if len(subset) > 1:  # Only plot if we have enough data
-            kde = sns.kdeplot(subset, label=control, fill=False, ax=ax)
-            colors[control] = kde.get_lines()[-1].get_color()  # Store the color used for this control
+        if len(subset) > 1:
+            kde = sns.kdeplot(subset, label=truncated_control, fill=False, ax=ax)
+            colors[control] = kde.get_lines()[-1].get_color()
             averages[control] = subset.mean()
 
     # Draw vertical lines for the averages with the same colors as the KDE plots
@@ -379,14 +401,15 @@ def _plot_top3_scores(df, verbosity_controls, metric, column, ax, xlim=None):
     x_positions = range(len(unique_indices))  # Positions for the unique indices
 
     for i, (control, counts) in enumerate(index_counts.items()):
-        heights = [counts.get(idx, -0.1) for idx in unique_indices]  # Get counts for each unique index, default to 0
+        truncated_control = truncate_verbosity_control(control)
+        heights = [counts.get(idx, 0) for idx in unique_indices]
         ax.bar(
-            [x + i * bar_width for x in x_positions],  # Offset x positions for each control
+            [x + i * bar_width for x in x_positions],
             heights,
             width=bar_width,
             color=colors[i],
             alpha=0.7,
-            label=control
+            label=truncated_control
         )
 
     # Set x-ticks to show the unique indices
@@ -401,7 +424,7 @@ def _plot_top3_scores(df, verbosity_controls, metric, column, ax, xlim=None):
 
 if __name__ == "__main__":
     rouges = ["rouge2", "rougeL"]
-    path = "wiki-qa-data/"
+    path = "wiki-qa-data/data/1Apr-mathdial-tutor1/"
     file = "analysis.csv"
     
     analyse_data(path, file, rouges)
@@ -440,4 +463,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error displaying metric scores: {e}")
     save_top_index_counts_to_csv(df, verbosity_controls, ["rouge2_f1", "rougeL_f1", "bert_f1", "similarity"], path+"top_index_counts.csv")
-    display_metric_scores(df, verbosity_controls, metrics, type="top3")
+    # display_metric_scores(df, verbosity_controls, metrics, type="top3")
